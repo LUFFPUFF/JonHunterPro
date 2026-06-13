@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="ru.jobhunter.ui.controller.ProfileController"
+      spacing="18"
+      alignment="TOP_LEFT">
+
+    <padding>
+        <Insets top="34" right="42" bottom="34" left="42"/>
+    </padding>
+
+    <Label text="Профиль пользователя"
+           style="-fx-font-size: 28px; -fx-font-weight: bold;"/>
+
+    <Label text="Основная информация об авторизованном пользователе."
+           style="-fx-font-size: 15px; -fx-text-fill: #555555;"/>
+
+    <Separator prefWidth="620"/>
+
+    <GridPane hgap="18" vgap="14">
+        <Label text="ФИО:"
+               style="-fx-font-weight: bold;"
+               GridPane.rowIndex="0"
+               GridPane.columnIndex="0"/>
+
+        <Label fx:id="fullNameLabel"
+               GridPane.rowIndex="0"
+               GridPane.columnIndex="1"/>
+
+        <Label text="Email:"
+               style="-fx-font-weight: bold;"
+               GridPane.rowIndex="1"
+               GridPane.columnIndex="0"/>
+
+        <Label fx:id="emailLabel"
+               GridPane.rowIndex="1"
+               GridPane.columnIndex="1"/>
+
+        <Label text="User ID:"
+               style="-fx-font-weight: bold;"
+               GridPane.rowIndex="2"
+               GridPane.columnIndex="0"/>
+
+        <Label fx:id="userIdLabel"
+               wrapText="true"
+               GridPane.rowIndex="2"
+               GridPane.columnIndex="1"/>
+    </GridPane>
+
+    <Separator prefWidth="620"/>
+
+    <VBox spacing="8">
+        <Label text="Интеграции"
+               style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+
+        <HBox spacing="12" alignment="CENTER_LEFT">
+            <Button fx:id="connectHhButton"
+                    text="Подключить HH.ru"
+                    onAction="#onConnectHhClicked"/>
+
+            <Label fx:id="hhConnectionStatusLabel"
+                   text="HH.ru не подключён"
+                   wrapText="true"
+                   maxWidth="420"/>
+        </HBox>
+    </VBox>
+
+    <Separator prefWidth="620"/>
+
+    <Label text="На следующих этапах здесь появятся резюме, настройки профиля, API-токены платформ и история действий."
+           wrapText="true"
+           maxWidth="620"
+           style="-fx-font-size: 14px; -fx-text-fill: #555555;"/>
+
+    <Button text="Выйти из аккаунта"
+            onAction="#onLogout"/>
+</VBox>

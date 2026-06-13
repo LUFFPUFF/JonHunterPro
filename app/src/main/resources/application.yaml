@@ -1,0 +1,90 @@
+spring:
+  application:
+    name: jobhunter-pro
+
+  profiles:
+    active: dev
+
+  datasource:
+    url: jdbc:postgresql://${JOBHUNTER_DB_HOST:localhost}:${JOBHUNTER_DB_PORT:5434}/${JOBHUNTER_DB_NAME:jobhunter}
+    username: ${JOBHUNTER_DB_USER:jobhunter}
+    password: ${JOBHUNTER_DB_PASSWORD:jobhunter}
+    driver-class-name: org.postgresql.Driver
+
+    hikari:
+      pool-name: JobHunterHikariPool
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    open-in-view: false
+
+    hibernate:
+      ddl-auto: validate
+
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+
+jobhunter:
+  logging:
+    path: ${JOBHUNTER_LOGGING_PATH:logs}
+    console-level: ${JOBHUNTER_LOGGING_CONSOLE_LEVEL:INFO}
+    file-level: ${JOBHUNTER_LOGGING_FILE_LEVEL:DEBUG}
+
+  integrations:
+    hh:
+      oauth:
+        authorization-url: https://hh.ru/oauth/authorize
+        token-url: https://api.hh.ru/token
+        client-id: ${HH_CLIENT_ID:}
+        client-secret: ${HH_CLIENT_SECRET:}
+        redirect-uri: ${HH_REDIRECT_URI:http://localhost:54345/oauth/hh/callback}
+        callback-port: ${HH_CALLBACK_PORT:54345}
+        state-byte-length: ${HH_OAUTH_STATE_BYTE_LENGTH:32}
+        user-agent: ${HH_USER_AGENT:JobHunterPro/0.1.0 (your-email@example.com)}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    ru.jobhunter: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    ru.jobhunter: INFO
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN

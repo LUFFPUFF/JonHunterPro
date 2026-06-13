@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.VBox?>
+
+<TabPane xmlns="http://javafx.com/javafx"
+         xmlns:fx="http://javafx.com/fxml"
+         fx:controller="ru.jobhunter.ui.controller.AuthController"
+         tabClosingPolicy="UNAVAILABLE"
+         maxWidth="520"
+         maxHeight="420">
+
+    <tabs>
+        <Tab text="Вход">
+            <VBox spacing="14">
+                <padding>
+                    <Insets top="28" right="32" bottom="28" left="32"/>
+                </padding>
+
+                <Label text="Вход в JobHunterPro"
+                       style="-fx-font-size: 22px; -fx-font-weight: bold;"/>
+
+                <Label text="Email"/>
+                <TextField fx:id="loginEmailField"
+                           promptText="example@mail.ru"/>
+
+                <Label text="Пароль"/>
+                <PasswordField fx:id="loginPasswordField"
+                               promptText="Введите пароль"/>
+
+                <Button text="Войти"
+                        maxWidth="Infinity"
+                        onAction="#onLogin"/>
+
+                <Label fx:id="loginMessageLabel"
+                       wrapText="true"
+                       style="-fx-text-fill: #444444;"/>
+            </VBox>
+        </Tab>
+
+        <Tab text="Регистрация">
+            <VBox spacing="14">
+                <padding>
+                    <Insets top="28" right="32" bottom="28" left="32"/>
+                </padding>
+
+                <Label text="Регистрация"
+                       style="-fx-font-size: 22px; -fx-font-weight: bold;"/>
+
+                <Label text="ФИО"/>
+                <TextField fx:id="registerFullNameField"
+                           promptText="Иван Иванов"/>
+
+                <Label text="Email"/>
+                <TextField fx:id="registerEmailField"
+                           promptText="example@mail.ru"/>
+
+                <Label text="Пароль"/>
+                <PasswordField fx:id="registerPasswordField"
+                               promptText="Минимум 8 символов, буквы и цифры"/>
+
+                <Button text="Создать аккаунт"
+                        maxWidth="Infinity"
+                        onAction="#onRegister"/>
+
+                <Label fx:id="registerMessageLabel"
+                       wrapText="true"
+                       style="-fx-text-fill: #444444;"/>
+            </VBox>
+        </Tab>
+    </tabs>
+</TabPane>
