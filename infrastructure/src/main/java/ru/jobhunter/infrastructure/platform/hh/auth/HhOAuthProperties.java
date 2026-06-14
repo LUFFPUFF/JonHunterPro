@@ -9,8 +9,13 @@ public record HhOAuthProperties(
         String clientId,
         String clientSecret,
         String redirectUri,
+        String redirectMode,
         int callbackPort,
         int stateByteLength,
         String userAgent
 ) {
+
+    public HhOAuthRedirectMode parsedRedirectMode() {
+        return HhOAuthRedirectMode.from(redirectMode);
+    }
 }

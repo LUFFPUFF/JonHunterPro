@@ -43,6 +43,7 @@ class HhOAuthTokenClientTest {
                     "client-id",
                     "client-secret",
                     "http://127.0.0.1:54345/oauth/hh/callback",
+                    "http://localhost:54345/oauth/hh/callback",
                     54345,
                     32,
                     "JobHunterPro/0.1.0 (test@example.com)"
@@ -108,6 +109,7 @@ class HhOAuthTokenClientTest {
                     "client-id",
                     "client-secret",
                     "http://127.0.0.1:54345/oauth/hh/callback",
+                    HhOAuthRedirectMode.LOCAL_HTTP_SERVER.name(),
                     54345,
                     32,
                     "JobHunterPro/0.1.0 (test@example.com)"

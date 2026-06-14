@@ -72,6 +72,17 @@
                    wrapText="true"
                    maxWidth="420"/>
         </HBox>
+
+        <HBox spacing="12" alignment="CENTER_LEFT">
+            <Button fx:id="checkHhApiButton"
+                    text="Проверить HH.ru API"
+                    onAction="#onCheckHhApiClicked"/>
+
+            <Label fx:id="hhApiStatusLabel"
+                   text="HH API не проверялся"
+                   wrapText="true"
+                   maxWidth="420"/>
+        </HBox>
     </VBox>
 
     <Separator prefWidth="620"/>

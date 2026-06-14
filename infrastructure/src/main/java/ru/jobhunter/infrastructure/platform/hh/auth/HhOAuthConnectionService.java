@@ -9,33 +9,38 @@ import ru.jobhunter.core.application.usecase.integration.ConnectHhAccountUseCase
 import ru.jobhunter.core.domain.model.AuthProvider;
 import ru.jobhunter.core.domain.model.UserId;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 @Service
-public class HhOAuthConnectionService implements ConnectHhAccountUseCase {
+public final class HhOAuthConnectionService implements ConnectHhAccountUseCase {
 
     private static final Logger log = LoggerFactory.getLogger(HhOAuthConnectionService.class);
+    private static final Duration CALLBACK_TIMEOUT = Duration.ofMinutes(5);
 
-    private final HhOAuthStateGenerator stateGenerator;
     private final HhOAuthAuthorizationUrlFactory authorizationUrlFactory;
-    private final HhOAuthCallbackServer callbackServer;
+    private final HhOAuthCallbackWaiter callbackWaiter;
     private final HhOAuthTokenService tokenService;
 
     public HhOAuthConnectionService(
-            HhOAuthStateGenerator stateGenerator,
             HhOAuthAuthorizationUrlFactory authorizationUrlFactory,
-            HhOAuthCallbackServer callbackServer,
+            HhOAuthCallbackWaiter callbackWaiter,
             HhOAuthTokenService tokenService
     ) {
-        this.stateGenerator = Objects.requireNonNull(stateGenerator, "HH OAuth state generator must not be null");
         this.authorizationUrlFactory = Objects.requireNonNull(
                 authorizationUrlFactory,
                 "HH OAuth authorization URL factory must not be null"
         );
-        this.callbackServer = Objects.requireNonNull(callbackServer, "HH OAuth callback server must not be null");
-        this.tokenService = Objects.requireNonNull(tokenService, "HH OAuth token service must not be null");
+        this.callbackWaiter = Objects.requireNonNull(
+                callbackWaiter,
+                "HH OAuth callback waiter must not be null"
+        );
+        this.tokenService = Objects.requireNonNull(
+                tokenService,
+                "HH OAuth token service must not be null"
+        );
     }
 
     @Override
@@ -45,8 +50,12 @@ public class HhOAuthConnectionService implements ConnectHhAccountUseCase {
         HhOAuthAuthorizationUrlFactory.HhOAuthAuthorizationUrl authorization =
                 authorizationUrlFactory.createAuthorizationUrl();
 
-        CompletableFuture<HhConnectionResultDto> completion = callbackServer.waitForCallback(authorization.state())
-                .thenCompose(callbackResult -> tokenService.exchangeAndSave(userId, callbackResult.code()))
+        CompletableFuture<HhConnectionResultDto> completion = callbackWaiter
+                .waitForCallback(authorization.state(), CALLBACK_TIMEOUT)
+                .thenCompose(callbackResult -> tokenService.exchangeAndSave(
+                        userId,
+                        callbackResult.code()
+                ))
                 .thenApply(savedToken -> new HhConnectionResultDto(
                         AuthProvider.HH_RU,
                         Instant.now()

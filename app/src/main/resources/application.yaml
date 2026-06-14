@@ -49,15 +49,20 @@ jobhunter:
 
   integrations:
     hh:
+      api:
+        base-url: ${HH_API_BASE_URL:https://api.hh.ru}
+        user-agent: ${HH_USER_AGENT:JobHunterPro/0.1.0 (beatsluffi@gmail.com)}
+        allow-non-hh-base-url: ${HH_API_ALLOW_NON_HH_BASE_URL:false}
       oauth:
         authorization-url: https://hh.ru/oauth/authorize
         token-url: https://api.hh.ru/token
         client-id: ${HH_CLIENT_ID:}
         client-secret: ${HH_CLIENT_SECRET:}
-        redirect-uri: ${HH_REDIRECT_URI:http://localhost:54345/oauth/hh/callback}
+        redirect-uri: ${HH_REDIRECT_URI:http://127.0.0.1:54345/oauth/hh/callback}
+        redirect-mode: ${HH_REDIRECT_MODE:LOCAL_HTTP_SERVER}
         callback-port: ${HH_CALLBACK_PORT:54345}
         state-byte-length: ${HH_OAUTH_STATE_BYTE_LENGTH:32}
-        user-agent: ${HH_USER_AGENT:JobHunterPro/0.1.0 (your-email@example.com)}
+        user-agent: ${HH_USER_AGENT:JobHunterPro/0.1.0 (beatsluffi@gmail.com)}
 
 ---
 spring:

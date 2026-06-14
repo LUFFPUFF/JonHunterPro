@@ -15,6 +15,7 @@ class HhOAuthStateGeneratorTest {
                 "client-id",
                 "client-secret",
                 "http://localhost:54345/oauth/hh/callback",
+                HhOAuthRedirectMode.LOCAL_HTTP_SERVER.name(),
                 54345,
                 32,
                 "JobHunterPro/0.1.0 (test@example.com)"

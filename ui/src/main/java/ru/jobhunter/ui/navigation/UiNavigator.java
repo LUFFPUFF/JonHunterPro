@@ -53,6 +53,16 @@ public class UiNavigator {
         setStatus("Вы вошли как " + fullName);
     }
 
+    public void showAutoResponses() {
+        if (!currentUserSession.isAuthenticated()) {
+            showAuth();
+            return;
+        }
+
+        setCenter(fxmlViewLoader.load("/ru/jobhunter/ui/view/auto-responses.fxml"));
+        setStatus("Автоотклики: поиск вакансий и подготовка очереди откликов.");
+    }
+
     public void showPlaceholder(String title, String description) {
         Label titleLabel = new Label(title);
         titleLabel.setStyle("-fx-font-size: 26px; -fx-font-weight: bold;");

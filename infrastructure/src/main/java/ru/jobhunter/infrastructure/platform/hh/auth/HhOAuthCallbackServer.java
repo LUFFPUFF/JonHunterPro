@@ -22,7 +22,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Component
-public final class HhOAuthCallbackServer {
+public final class HhOAuthCallbackServer implements HhOAuthCallbackStrategy  {
 
     private static final Logger log = LoggerFactory.getLogger(HhOAuthCallbackServer.class);
 
@@ -45,6 +45,12 @@ public final class HhOAuthCallbackServer {
         return waitForCallback(expectedState, DEFAULT_TIMEOUT);
     }
 
+    @Override
+    public HhOAuthRedirectMode redirectMode() {
+        return HhOAuthRedirectMode.LOCAL_HTTP_SERVER;
+    }
+
+    @Override
     public CompletableFuture<HhOAuthCallbackResult> waitForCallback(
             String expectedState,
             Duration timeout
@@ -54,6 +60,12 @@ public final class HhOAuthCallbackServer {
         }
 
         Objects.requireNonNull(timeout, "Timeout must not be null");
+
+        if (properties.parsedRedirectMode() != HhOAuthRedirectMode.LOCAL_HTTP_SERVER) {
+            throw new HhOAuthCallbackException(
+                    "Local HH OAuth callback server is available only in LOCAL_HTTP_SERVER redirect mode"
+            );
+        }
 
         CompletableFuture<HhOAuthCallbackResult> callbackFuture = new CompletableFuture<>();
 

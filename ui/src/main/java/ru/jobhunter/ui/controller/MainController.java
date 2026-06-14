@@ -91,10 +91,7 @@ public final class MainController {
 
         switch (selectedItem) {
             case "Профиль" -> uiNavigator.showProfile();
-            case "Автоотклики" -> uiNavigator.showPlaceholder(
-                    "Автоотклики",
-                    "Раздел будет реализован на этапах интеграции с HH.ru, Habr Career и LinkedIn."
-            );
+            case "Автоотклики" -> uiNavigator.showAutoResponses();
             case "HR-контакты" -> uiNavigator.showPlaceholder(
                     "HR-контакты",
                     "Раздел будет реализован на этапе сбора контактов HR."
