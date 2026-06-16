@@ -34,7 +34,7 @@ public final class HhOAuthCustomSchemeStartupArgumentsRunner implements Applicat
         );
 
         if (dispatchedCount > 0) {
-            log.info("HH OAuth custom URI startup callbacks dispatched: count={}", dispatchedCount);
+            log.info("OAuth custom URI startup callbacks dispatched: count={}", dispatchedCount);
         }
     }
 }

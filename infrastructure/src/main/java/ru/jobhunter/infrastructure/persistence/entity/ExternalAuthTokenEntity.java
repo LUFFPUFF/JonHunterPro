@@ -25,7 +25,7 @@ public class ExternalAuthTokenEntity {
     @Column(name = "access_token", nullable = false)
     private String accessToken;
 
-    @Column(name = "refresh_token", nullable = false)
+    @Column(name = "refresh_token")
     private String refreshToken;
 
     @Column(name = "token_type", nullable = false, length = 50)
@@ -34,7 +34,7 @@ public class ExternalAuthTokenEntity {
     @Column(name = "scope")
     private String scope;
 
-    @Column(name = "expires_at", nullable = false)
+    @Column(name = "expires_at")
     private Instant expiresAt;
 
     @Column(name = "created_at", nullable = false)

@@ -74,6 +74,28 @@
         </HBox>
 
         <HBox spacing="12" alignment="CENTER_LEFT">
+            <Button fx:id="connectHabrCareerButton"
+                    text="Подключить Habr Career"
+                    onAction="#onConnectHabrCareerClicked"/>
+
+            <Label fx:id="habrCareerConnectionStatusLabel"
+                   text="Habr Career не подключён"
+                   wrapText="true"
+                   maxWidth="420"/>
+        </HBox>
+
+        <HBox spacing="12" alignment="CENTER_LEFT">
+            <Button fx:id="checkHabrCareerApiButton"
+                    text="Проверить Habr Career API"
+                    onAction="#onCheckHabrCareerApiClicked"/>
+
+            <Label fx:id="habrCareerApiStatusLabel"
+                   text="Habr Career API не проверялся"
+                   wrapText="true"
+                   maxWidth="420"/>
+        </HBox>
+
+        <HBox spacing="12" alignment="CENTER_LEFT">
             <Button fx:id="checkHhApiButton"
                     text="Проверить HH.ru API"
                     onAction="#onCheckHhApiClicked"/>

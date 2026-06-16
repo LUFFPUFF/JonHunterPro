@@ -25,3 +25,6 @@ Thumbs.db
 docs/JobHunterPro_dialogue_report1.md
 docs/JobHunterPro_Master_Prompt.md
 docs/JobHunterPro_full_dialogue_report2_2026-06-14.md
+
+.env.example
+app/src/main/resources/application.yaml

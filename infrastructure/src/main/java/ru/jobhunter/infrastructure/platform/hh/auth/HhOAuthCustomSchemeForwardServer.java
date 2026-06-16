@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
+import ru.jobhunter.infrastructure.platform.oauth.OAuthCustomSchemeCallbackDispatcher;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -26,14 +27,14 @@ public final class HhOAuthCustomSchemeForwardServer implements ApplicationRunner
     private static final String END_MARKER = "__END__";
 
     private final HhOAuthProperties properties;
-    private final HhOAuthCustomSchemeCallbackDispatcher callbackDispatcher;
+    private final OAuthCustomSchemeCallbackDispatcher callbackDispatcher;
 
     private volatile ServerSocket serverSocket;
     private volatile Thread acceptThread;
 
     public HhOAuthCustomSchemeForwardServer(
             HhOAuthProperties properties,
-            HhOAuthCustomSchemeCallbackDispatcher callbackDispatcher
+            OAuthCustomSchemeCallbackDispatcher callbackDispatcher
     ) {
         this.properties = Objects.requireNonNull(
                 properties,
@@ -41,7 +42,7 @@ public final class HhOAuthCustomSchemeForwardServer implements ApplicationRunner
         );
         this.callbackDispatcher = Objects.requireNonNull(
                 callbackDispatcher,
-                "HH OAuth custom scheme callback dispatcher must not be null"
+                "OAuth custom scheme callback dispatcher must not be null"
         );
     }
 

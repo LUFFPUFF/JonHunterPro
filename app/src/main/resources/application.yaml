@@ -56,13 +56,29 @@ jobhunter:
       oauth:
         authorization-url: https://hh.ru/oauth/authorize
         token-url: https://api.hh.ru/token
-        client-id: ${HH_CLIENT_ID:}
-        client-secret: ${HH_CLIENT_SECRET:}
-        redirect-uri: ${HH_REDIRECT_URI:http://127.0.0.1:54345/oauth/hh/callback}
+        client-id: KRLC5IVGCVG50S24L3JMUV8B5CU93QHS70O9IP91DM2G36LSM9S2R9D14NUFAGG9
+        client-secret: GPVKQ9SR62QKTCVQFETHTIIKIE3I9TLM0DO8SH7IS0S75LFL98L80AM1OI9IABGC
+        redirect-uri: jobhunterpro://oauth/hh/callback
         redirect-mode: ${HH_REDIRECT_MODE:LOCAL_HTTP_SERVER}
         callback-port: ${HH_CALLBACK_PORT:54345}
         state-byte-length: ${HH_OAUTH_STATE_BYTE_LENGTH:32}
         user-agent: ${HH_USER_AGENT:JobHunterPro/0.1.0 (beatsluffi@gmail.com)}
+
+    habr-career:
+      api:
+        base-url: ${HABR_CAREER_API_BASE_URL:https://career.habr.com/api}
+        user-agent: ${HABR_CAREER_USER_AGENT:JobHunterPro/0.1.0 (beatsluffi@gmail.com)}
+        allow-non-habr-career-base-url: ${HABR_CAREER_API_ALLOW_NON_HABR_CAREER_BASE_URL:false}
+
+      oauth:
+        authorization-url: ${HABR_CAREER_OAUTH_AUTHORIZATION_URL:https://career.habr.com/integrations/oauth/authorize}
+        token-url: ${HABR_CAREER_OAUTH_TOKEN_URL:https://career.habr.com/integrations/oauth/token}
+        client-id: kpgRrUQ5cOx-6bMCQPUoULEuzH3nT9MRj6RbPUd4KRQ
+        client-secret: r5tRiMoe3wNfsjq_h3M9IxpattBnjUoLh90Ji-yeIyA
+        redirect-uri: ${HABR_CAREER_REDIRECT_URI:jobhunterpro://oauth/habr/callback}
+        allow-non-habr-career-oauth-urls: ${HABR_CAREER_OAUTH_ALLOW_NON_HABR_CAREER_URLS:false}
+        state-byte-length: ${HABR_CAREER_OAUTH_STATE_BYTE_LENGTH:32}
+        user-agent: ${HABR_CAREER_USER_AGENT:JobHunterPro/0.1.0 (beatsluffi@gmail.com)}
 
 ---
 spring:

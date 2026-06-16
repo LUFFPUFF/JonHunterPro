@@ -1,14 +1,16 @@
 package ru.jobhunter.infrastructure.platform.hh.auth;
 
 import org.springframework.stereotype.Component;
+import ru.jobhunter.infrastructure.platform.oauth.OAuthCustomSchemeCallbackHandler;
 
 import java.util.Collection;
 import java.util.Objects;
 
 @Component
-public final class HhOAuthCustomSchemeCallbackDispatcher {
+public final class HhOAuthCustomSchemeCallbackDispatcher implements OAuthCustomSchemeCallbackHandler {
 
-    private static final String CUSTOM_SCHEME_PREFIX = "jobhunterpro://";
+    private static final String HH_CUSTOM_SCHEME_CALLBACK_PREFIX =
+            "jobhunterpro://oauth/hh/callback";
 
     private final HhOAuthCustomSchemeCallbackRegistry callbackRegistry;
 
@@ -19,14 +21,6 @@ public final class HhOAuthCustomSchemeCallbackDispatcher {
                 callbackRegistry,
                 "HH OAuth custom scheme callback registry must not be null"
         );
-    }
-
-    public boolean dispatchIfSupported(String argument) {
-        if (!isCustomSchemeCallback(argument)) {
-            return false;
-        }
-
-        return callbackRegistry.completeFromCallbackUri(argument);
     }
 
     public int dispatchAll(Collection<String> arguments) {
@@ -43,14 +37,28 @@ public final class HhOAuthCustomSchemeCallbackDispatcher {
         return dispatchedCount;
     }
 
-    private boolean isCustomSchemeCallback(String value) {
-        return value != null
-                && value.regionMatches(
+    @Override
+    public boolean supports(String callbackUri) {
+        return callbackUri != null
+                && callbackUri.regionMatches(
                 true,
                 0,
-                CUSTOM_SCHEME_PREFIX,
+                HH_CUSTOM_SCHEME_CALLBACK_PREFIX,
                 0,
-                CUSTOM_SCHEME_PREFIX.length()
+                HH_CUSTOM_SCHEME_CALLBACK_PREFIX.length()
         );
+    }
+
+    @Override
+    public boolean dispatch(String callbackUri) {
+        return callbackRegistry.completeFromCallbackUri(callbackUri);
+    }
+
+    public boolean dispatchIfSupported(String argument) {
+        if (!supports(argument)) {
+            return false;
+        }
+
+        return dispatch(argument);
     }
 }

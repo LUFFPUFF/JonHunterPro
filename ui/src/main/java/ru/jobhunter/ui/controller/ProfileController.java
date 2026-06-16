@@ -7,12 +7,8 @@ import javafx.scene.control.Label;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import ru.jobhunter.core.application.dto.AuthenticatedUserDto;
-import ru.jobhunter.core.application.dto.HhConnectionStatusDto;
-import ru.jobhunter.core.application.dto.HhCurrentUserDto;
-import ru.jobhunter.core.application.usecase.integration.ConnectHhAccountUseCase;
-import ru.jobhunter.core.application.usecase.integration.GetHhConnectionStatusUseCase;
-import ru.jobhunter.core.application.usecase.integration.GetHhCurrentUserUseCase;
+import ru.jobhunter.core.application.dto.*;
+import ru.jobhunter.core.application.usecase.integration.*;
 import ru.jobhunter.core.domain.model.UserId;
 import ru.jobhunter.ui.navigation.UiNavigator;
 import ru.jobhunter.ui.session.CurrentUserSession;
@@ -35,8 +31,10 @@ public class ProfileController {
     private final CurrentUserSession currentUserSession;
     private final UiNavigator uiNavigator;
     private final ConnectHhAccountUseCase connectHhAccountUseCase;
+    private final ConnectHabrCareerAccountUseCase connectHabrCareerAccountUseCase;
     private final GetHhConnectionStatusUseCase getHhConnectionStatusUseCase;
     private final GetHhCurrentUserUseCase getHhCurrentUserUseCase;
+    private final GetHabrCareerCurrentUserUseCase getHabrCareerCurrentUserUseCase;
 
     @FXML
     private Label fullNameLabel;
@@ -59,12 +57,26 @@ public class ProfileController {
     @FXML
     private Label hhApiStatusLabel;
 
+    @FXML
+    private Button connectHabrCareerButton;
+
+    @FXML
+    private Label habrCareerConnectionStatusLabel;
+
+    @FXML
+    private Button checkHabrCareerApiButton;
+
+    @FXML
+    private Label habrCareerApiStatusLabel;
+
     public ProfileController(
             CurrentUserSession currentUserSession,
             UiNavigator uiNavigator,
             ConnectHhAccountUseCase connectHhAccountUseCase,
             GetHhConnectionStatusUseCase getHhConnectionStatusUseCase,
-            GetHhCurrentUserUseCase getHhCurrentUserUseCase
+            GetHhCurrentUserUseCase getHhCurrentUserUseCase,
+            ConnectHabrCareerAccountUseCase connectHabrCareerAccountUseCase,
+            GetHabrCareerCurrentUserUseCase getHabrCareerCurrentUserUseCase
     ) {
         this.currentUserSession = Objects.requireNonNull(
                 currentUserSession,
@@ -86,6 +98,14 @@ public class ProfileController {
                 getHhCurrentUserUseCase,
                 "Get HH current user use case must not be null"
         );
+        this.getHabrCareerCurrentUserUseCase = Objects.requireNonNull(
+                getHabrCareerCurrentUserUseCase,
+                "Get Habr Career current user use case must not be null"
+        );
+        this.connectHabrCareerAccountUseCase = Objects.requireNonNull(
+                connectHabrCareerAccountUseCase,
+                "Connect Habr Career account use case must not be null"
+        );
     }
 
     @FXML
@@ -98,6 +118,8 @@ public class ProfileController {
         userIdLabel.setText(user.id().toString());
 
         setHhApiStatus("HH API не проверялся");
+        setHabrCareerStatus("Habr Career не подключён");
+        setHabrCareerApiStatus("Habr Career API не проверялся");
 
         UserId userId = UserId.of(user.id());
         loadHhConnectionStatus(userId);
@@ -154,6 +176,51 @@ public class ProfileController {
     }
 
     @FXML
+    private void onConnectHabrCareerClicked() {
+        AuthenticatedUserDto currentUser = currentUserSession.getCurrentUser()
+                .orElse(null);
+
+        if (currentUser == null) {
+            setHabrCareerStatus("Сначала войдите в аккаунт JobHunterPro.");
+            return;
+        }
+
+        connectHabrCareerButton.setDisable(true);
+        setHabrCareerStatus("Открываем страницу авторизации Habr Career...");
+
+        try {
+            UserId userId = UserId.of(currentUser.id());
+
+            HabrCareerConnectionFlowDto flow =
+                    connectHabrCareerAccountUseCase.startConnection(userId);
+
+            openBrowser(flow.authorizationUrl());
+
+            setHabrCareerStatus(
+                    "Авторизуйтесь в браузере. После разрешения доступа вернитесь в приложение."
+            );
+
+            flow.completion().whenComplete((result, throwable) -> Platform.runLater(() -> {
+                connectHabrCareerButton.setDisable(false);
+
+                if (throwable == null) {
+                    setHabrCareerStatus("Habr Career подключён.");
+                    checkHabrCareerApi(userId);
+                } else {
+                    setHabrCareerStatus(
+                            "Не удалось подключить Habr Career: " + rootMessage(throwable)
+                    );
+                }
+            }));
+        } catch (RuntimeException exception) {
+            connectHabrCareerButton.setDisable(false);
+            setHabrCareerStatus(
+                    "Не удалось начать подключение Habr Career: " + rootMessage(exception)
+            );
+        }
+    }
+
+    @FXML
     private void onCheckHhApiClicked() {
         AuthenticatedUserDto currentUser = currentUserSession.getCurrentUser()
                 .orElse(null);
@@ -165,6 +232,20 @@ public class ProfileController {
 
         UserId userId = UserId.of(currentUser.id());
         checkHhApi(userId);
+    }
+
+    @FXML
+    private void onCheckHabrCareerApiClicked() {
+        AuthenticatedUserDto currentUser = currentUserSession.getCurrentUser()
+                .orElse(null);
+
+        if (currentUser == null) {
+            setHabrCareerApiStatus("Сначала войдите в аккаунт JobHunterPro.");
+            return;
+        }
+
+        UserId userId = UserId.of(currentUser.id());
+        checkHabrCareerApi(userId);
     }
 
     private void checkHhApi(UserId userId) {
@@ -205,6 +286,36 @@ public class ProfileController {
         };
     }
 
+    private void setHabrCareerStatus(String message) {
+        if (habrCareerConnectionStatusLabel != null) {
+            habrCareerConnectionStatusLabel.setText(message);
+        }
+    }
+
+    private String formatHabrCareerApiStatus(HabrCareerCurrentUserDto habrCareerUser) {
+        String login = valueOrUnknown(habrCareerUser.login());
+        String email = valueOrUnknown(habrCareerUser.email());
+        String city = valueOrUnknown(habrCareerUser.city());
+
+        return "Habr Career API доступен. Логин: " + login + ", email: " + email + ", город: " + city;
+    }
+
+    private void checkHabrCareerApi(UserId userId) {
+        checkHabrCareerApiButton.setDisable(true);
+        setHabrCareerApiStatus("Проверяем доступ к Habr Career API...");
+
+        getHabrCareerCurrentUserUseCase.getCurrentUser(userId)
+                .whenComplete((habrCareerUser, throwable) -> Platform.runLater(() -> {
+                    checkHabrCareerApiButton.setDisable(false);
+
+                    if (throwable == null) {
+                        setHabrCareerApiStatus(formatHabrCareerApiStatus(habrCareerUser));
+                    } else {
+                        setHabrCareerApiStatus("Habr Career API недоступен: " + rootMessage(throwable));
+                    }
+                }));
+    }
+
     private String formatHhApiStatus(HhCurrentUserDto hhUser) {
         String userType = valueOrUnknown(hhUser.userType());
         String email = valueOrUnknown(hhUser.email());
@@ -239,6 +350,12 @@ public class ProfileController {
     private void setHhStatus(String message) {
         if (hhConnectionStatusLabel != null) {
             hhConnectionStatusLabel.setText(message);
+        }
+    }
+
+    private void setHabrCareerApiStatus(String message) {
+        if (habrCareerApiStatusLabel != null) {
+            habrCareerApiStatusLabel.setText(message);
         }
     }
 

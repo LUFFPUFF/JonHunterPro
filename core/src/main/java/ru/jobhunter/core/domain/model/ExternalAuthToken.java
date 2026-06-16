@@ -21,10 +21,10 @@ public class ExternalAuthToken {
         this.userId = Objects.requireNonNull(builder.userId, "User id must not be null");
         this.provider = Objects.requireNonNull(builder.provider, "Auth provider must not be null");
         this.accessToken = requireNotBlank(builder.accessToken, "Access token must not be blank");
-        this.refreshToken = requireNotBlank(builder.refreshToken, "Refresh token must not be blank");
+        this.refreshToken = normalizeNullable(builder.refreshToken);
         this.tokenType = requireNotBlank(builder.tokenType, "Token type must not be blank");
         this.scope = normalizeNullable(builder.scope);
-        this.expiresAt = Objects.requireNonNull(builder.expiresAt, "Expires at must not be null");
+        this.expiresAt = builder.expiresAt;
         this.createdAt = Objects.requireNonNull(builder.createdAt, "Created at must not be null");
         this.updatedAt = Objects.requireNonNull(builder.updatedAt, "Updated at must not be null");
 
@@ -79,6 +79,29 @@ public class ExternalAuthToken {
                 .build();
     }
 
+    public static ExternalAuthToken createPermanent(
+            UserId userId,
+            AuthProvider provider,
+            String accessToken,
+            String tokenType,
+            String scope
+    ) {
+        Instant now = Instant.now();
+
+        return builder()
+                .id(ExternalAuthTokenId.newId())
+                .userId(userId)
+                .provider(provider)
+                .accessToken(accessToken)
+                .refreshToken(null)
+                .tokenType(tokenType)
+                .scope(scope)
+                .expiresAt(null)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+    }
+
     public static ExternalAuthToken restore(
             ExternalAuthTokenId id,
             UserId userId,
@@ -107,6 +130,11 @@ public class ExternalAuthToken {
 
     public boolean isExpiredAt(Instant now) {
         Objects.requireNonNull(now, "Now instant must not be null");
+
+        if (expiresAt == null) {
+            return false;
+        }
+
         return !expiresAt.isAfter(now);
     }
 

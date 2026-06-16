@@ -4,7 +4,8 @@ import java.util.Arrays;
 
 public enum VacancySource {
 
-    HH_RU("HH_RU");
+    HH_RU("HH_RU"),
+    HABR_CAREER("HABR_CAREER");
 
     private final String code;
 
