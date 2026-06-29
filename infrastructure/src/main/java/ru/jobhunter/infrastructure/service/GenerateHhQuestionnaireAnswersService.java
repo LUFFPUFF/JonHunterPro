@@ -338,18 +338,23 @@ public class GenerateHhQuestionnaireAnswersService
         String missingFact = normalize(payload.missingFact());
 
         if (status == FormAnswerStatus.CANDIDATE_FACT_REQUIRED) {
-            return HhQuestionnaireSafeDefaultAnswerFactory
-                    .tryCreate(
+            Optional<GeneratedHhQuestionnaireAnswerDto> safeDefault =
+                    HhQuestionnaireSafeDefaultAnswerFactory.tryCreate(
                             questionIndex,
                             question
-                    )
-                    .orElseGet(() -> candidateFactRequiredAnswer(
-                            questionIndex,
-                            question,
-                            answer,
-                            selectedOptionIndex,
-                            missingFact
-                    ));
+                    );
+
+            if (safeDefault.isPresent()) {
+                return safeDefault.get();
+            }
+
+            return candidateFactRequiredAnswer(
+                    questionIndex,
+                    question,
+                    answer,
+                    selectedOptionIndex,
+                    missingFact
+            );
         }
 
         if (status == FormAnswerStatus.PROFILE_DERIVED
@@ -389,7 +394,7 @@ public class GenerateHhQuestionnaireAnswersService
                 );
             }
 
-            ensureMaxTextLength(
+            answer = shortenTextAnswerIfNeeded(
                     answer,
                     question.fieldName()
             );
@@ -431,7 +436,7 @@ public class GenerateHhQuestionnaireAnswersService
         }
 
         if (selectedOtherOption) {
-            ensureMaxTextLength(
+            answer = shortenTextAnswerIfNeeded(
                     answer,
                     question.otherTextFieldName()
             );
@@ -855,16 +860,83 @@ public class GenerateHhQuestionnaireAnswersService
         };
     }
 
-    private void ensureMaxTextLength(
+    private String shortenTextAnswerIfNeeded(
             String answer,
             String fieldName
     ) {
-        if (answer.length() > MAX_TEXT_ANSWER_CHARS) {
+        if (answer.length() <= MAX_TEXT_ANSWER_CHARS) {
+            return answer;
+        }
+
+        int cutOffIndex = findTextAnswerCutOffIndex(answer);
+
+        if (cutOffIndex <= 0) {
             throw new IllegalStateException(
-                    "LLM text answer is too long: field="
+                    "LLM text answer cannot be shortened without splitting "
+                            + "a word: field="
                             + fieldName
             );
         }
+
+        String shortened = answer.substring(0, cutOffIndex)
+                .strip();
+
+        if (shortened.isBlank()) {
+            throw new IllegalStateException(
+                    "LLM text answer became blank after shortening: field="
+                            + fieldName
+            );
+        }
+
+        log.info(
+                "HH questionnaire text answer shortened to fit field limit: "
+                        + "field={}, originalLength={}, shortenedLength={}",
+                fieldName,
+                answer.length(),
+                shortened.length()
+        );
+
+        return shortened;
+    }
+
+    private int findTextAnswerCutOffIndex(
+            String answer
+    ) {
+        if (Character.isWhitespace(
+                answer.charAt(MAX_TEXT_ANSWER_CHARS)
+        ) || isSentenceBoundary(
+                answer.charAt(MAX_TEXT_ANSWER_CHARS - 1)
+        )) {
+            return MAX_TEXT_ANSWER_CHARS;
+        }
+
+        int lastBoundaryIndex = 0;
+
+        for (int index = 0;
+             index < MAX_TEXT_ANSWER_CHARS;
+             index++) {
+            char current = answer.charAt(index);
+
+            if (Character.isWhitespace(current)) {
+                lastBoundaryIndex = index;
+                continue;
+            }
+
+            if (isSentenceBoundary(current)) {
+                lastBoundaryIndex = index + 1;
+            }
+        }
+
+        return lastBoundaryIndex;
+    }
+
+    private boolean isSentenceBoundary(
+            char value
+    ) {
+        return value == '.'
+                || value == '!'
+                || value == '?'
+                || value == '…';
     }
 
     private String limitText(
