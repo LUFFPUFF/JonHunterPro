@@ -3,21 +3,31 @@ package ru.jobhunter.ui.controller;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.util.StringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import ru.jobhunter.core.application.dto.*;
 import ru.jobhunter.core.application.usecase.integration.*;
-import ru.jobhunter.core.domain.model.UserId;
+import ru.jobhunter.core.application.usecase.profile.GetCandidateQuestionnaireProfileUseCase;
+import ru.jobhunter.core.application.usecase.profile.SaveCandidateQuestionnaireProfileUseCase;
+import ru.jobhunter.core.domain.model.*;
 import ru.jobhunter.ui.navigation.UiNavigator;
 import ru.jobhunter.ui.session.CurrentUserSession;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
 
-import java.awt.Desktop;
+import java.awt.*;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 
 @Component
 public class ProfileController {
@@ -34,7 +44,10 @@ public class ProfileController {
     private final ConnectHabrCareerAccountUseCase connectHabrCareerAccountUseCase;
     private final GetHhConnectionStatusUseCase getHhConnectionStatusUseCase;
     private final GetHhCurrentUserUseCase getHhCurrentUserUseCase;
+    private final GetHhResumesUseCase getHhResumesUseCase;
     private final GetHabrCareerCurrentUserUseCase getHabrCareerCurrentUserUseCase;
+    private final GetCandidateQuestionnaireProfileUseCase getCandidateQuestionnaireProfileUseCase;
+    private final SaveCandidateQuestionnaireProfileUseCase saveCandidateQuestionnaireProfileUseCase;
 
     @FXML
     private Label fullNameLabel;
@@ -58,6 +71,12 @@ public class ProfileController {
     private Label hhApiStatusLabel;
 
     @FXML
+    private Button checkHhResumesButton;
+
+    @FXML
+    private Label hhResumesStatusLabel;
+
+    @FXML
     private Button connectHabrCareerButton;
 
     @FXML
@@ -69,15 +88,68 @@ public class ProfileController {
     @FXML
     private Label habrCareerApiStatusLabel;
 
+    @FXML
+    private TextField candidateTimeZoneIdField;
+
+    @FXML
+    private TextField candidateSalaryMinField;
+
+    @FXML
+    private TextField candidateSalaryMaxField;
+
+    @FXML
+    private TextField candidateSalaryCurrencyField;
+
+    @FXML
+    private ComboBox<CandidateSalaryTaxBasis> candidateSalaryTaxBasisComboBox;
+
+    @FXML
+    private CheckBox candidateRelocationReadyCheckBox;
+
+    @FXML
+    private ComboBox<CandidateWorkFormatPreference>
+            candidateWorkFormatPreferenceComboBox;
+
+    @FXML
+    private CheckBox candidateRemoteWorkPriorityCheckBox;
+
+    @FXML
+    private TextField candidateEnglishLevelField;
+
+    @FXML
+    private CheckBox candidateBusinessTripsReadyCheckBox;
+
+    @FXML
+    private ComboBox<CandidateTestAssignmentReadiness> candidateTestAssignmentReadinessComboBox;
+
+    @FXML
+    private ComboBox<CandidateStartAvailability>
+            candidateStartAvailabilityComboBox;
+
+    @FXML
+    private CheckBox candidateAllowRelatedExperienceDraftsCheckBox;
+
+    @FXML
+    private TextArea candidateAdditionalConfirmedFactsTextArea;
+
+    @FXML
+    private Button saveCandidateQuestionnaireProfileButton;
+
+    @FXML
+    private Label candidateQuestionnaireProfileStatusLabel;
+
     public ProfileController(
             CurrentUserSession currentUserSession,
             UiNavigator uiNavigator,
             ConnectHhAccountUseCase connectHhAccountUseCase,
             GetHhConnectionStatusUseCase getHhConnectionStatusUseCase,
             GetHhCurrentUserUseCase getHhCurrentUserUseCase,
+            GetHhResumesUseCase getHhResumesUseCase,
             ConnectHabrCareerAccountUseCase connectHabrCareerAccountUseCase,
-            GetHabrCareerCurrentUserUseCase getHabrCareerCurrentUserUseCase
-    ) {
+            GetHabrCareerCurrentUserUseCase getHabrCareerCurrentUserUseCase,
+            GetCandidateQuestionnaireProfileUseCase getCandidateQuestionnaireProfileUseCase,
+            SaveCandidateQuestionnaireProfileUseCase saveCandidateQuestionnaireProfileUseCase
+    ){
         this.currentUserSession = Objects.requireNonNull(
                 currentUserSession,
                 "Current user session must not be null"
@@ -98,6 +170,10 @@ public class ProfileController {
                 getHhCurrentUserUseCase,
                 "Get HH current user use case must not be null"
         );
+        this.getHhResumesUseCase = Objects.requireNonNull(
+                getHhResumesUseCase,
+                "Get HH resumes use case must not be null"
+        );
         this.getHabrCareerCurrentUserUseCase = Objects.requireNonNull(
                 getHabrCareerCurrentUserUseCase,
                 "Get Habr Career current user use case must not be null"
@@ -105,6 +181,14 @@ public class ProfileController {
         this.connectHabrCareerAccountUseCase = Objects.requireNonNull(
                 connectHabrCareerAccountUseCase,
                 "Connect Habr Career account use case must not be null"
+        );
+        this.getCandidateQuestionnaireProfileUseCase = Objects.requireNonNull(
+                getCandidateQuestionnaireProfileUseCase,
+                "Get candidate questionnaire profile use case must not be null"
+        );
+        this.saveCandidateQuestionnaireProfileUseCase = Objects.requireNonNull(
+                saveCandidateQuestionnaireProfileUseCase,
+                "Save candidate questionnaire profile use case must not be null"
         );
     }
 
@@ -118,11 +202,18 @@ public class ProfileController {
         userIdLabel.setText(user.id().toString());
 
         setHhApiStatus("HH API не проверялся");
+        setHhResumesStatus("Резюме HH.ru не проверялись");
         setHabrCareerStatus("Habr Career не подключён");
         setHabrCareerApiStatus("Habr Career API не проверялся");
+        configureCandidateQuestionnaireProfileControls();
+        applySuggestedCandidateQuestionnaireProfileDefaults();
+        setCandidateQuestionnaireProfileStatus(
+                "Факты кандидата ещё не сохранены."
+        );
 
         UserId userId = UserId.of(user.id());
         loadHhConnectionStatus(userId);
+        loadCandidateQuestionnaireProfile(userId);
 
         log.info("Profile screen initialized: userId={}, email={}", user.id(), user.email());
     }
@@ -134,6 +225,20 @@ public class ProfileController {
 
         currentUserSession.clear();
         uiNavigator.showAuth();
+    }
+
+    @FXML
+    private void onCheckHhResumesClicked() {
+        AuthenticatedUserDto currentUser = currentUserSession.getCurrentUser()
+                .orElse(null);
+
+        if (currentUser == null) {
+            setHhResumesStatus("Сначала войдите в аккаунт JobHunterPro.");
+            return;
+        }
+
+        UserId userId = UserId.of(currentUser.id());
+        checkHhResumes(userId);
     }
 
     @FXML
@@ -347,6 +452,51 @@ public class ProfileController {
         }
     }
 
+    private void checkHhResumes(UserId userId) {
+        checkHhResumesButton.setDisable(true);
+        setHhResumesStatus("Загружаем резюме HH.ru...");
+
+        getHhResumesUseCase.getResumes(userId)
+                .whenComplete((resumes, throwable) -> Platform.runLater(() -> {
+                    checkHhResumesButton.setDisable(false);
+
+                    if (throwable == null) {
+                        setHhResumesStatus(formatHhResumesStatus(resumes));
+                    } else {
+                        setHhResumesStatus("Не удалось загрузить резюме HH.ru: " + rootMessage(throwable));
+                    }
+                }));
+    }
+
+    private String formatHhResumesStatus(List<HhResumeDto> resumes) {
+        if (resumes == null || resumes.isEmpty()) {
+            return "HH.ru резюме не найдены.";
+        }
+
+        StringBuilder builder = new StringBuilder("Найдено резюме: ")
+                .append(resumes.size());
+
+        for (HhResumeDto resume : resumes.stream().limit(5).toList()) {
+            builder.append("\n")
+                    .append("ID: ")
+                    .append(resume.id())
+                    .append(" — ")
+                    .append(valueOrUnknown(resume.title()));
+
+            if (resume.statusName() != null) {
+                builder.append(" [").append(resume.statusName()).append("]");
+            }
+        }
+
+        return builder.toString();
+    }
+
+    private void setHhResumesStatus(String message) {
+        if (hhResumesStatusLabel != null) {
+            hhResumesStatusLabel.setText(message);
+        }
+    }
+
     private void setHhStatus(String message) {
         if (hhConnectionStatusLabel != null) {
             hhConnectionStatusLabel.setText(message);
@@ -363,6 +513,308 @@ public class ProfileController {
         if (hhApiStatusLabel != null) {
             hhApiStatusLabel.setText(message);
         }
+    }
+
+    @FXML
+    private void onSaveCandidateQuestionnaireProfileClicked() {
+        AuthenticatedUserDto currentUser = currentUserSession.getCurrentUser()
+                .orElse(null);
+
+        if (currentUser == null) {
+            setCandidateQuestionnaireProfileStatus(
+                    "Сначала войдите в аккаунт JobHunterPro."
+            );
+            return;
+        }
+
+        try {
+            SaveCandidateQuestionnaireProfileCommand command =
+                    new SaveCandidateQuestionnaireProfileCommand(
+                            UserId.of(currentUser.id()),
+                            candidateTimeZoneIdField.getText(),
+                            parseMoney(
+                                    candidateSalaryMinField.getText(),
+                                    "Минимальная зарплата"
+                            ),
+                            parseMoney(
+                                    candidateSalaryMaxField.getText(),
+                                    "Максимальная зарплата"
+                            ),
+                            candidateSalaryCurrencyField.getText(),
+                            requireSelected(
+                                    candidateSalaryTaxBasisComboBox.getValue(),
+                                    "Укажите основу суммы зарплаты"
+                            ),
+                            candidateRelocationReadyCheckBox.isSelected(),
+                            requireSelected(
+                                    candidateWorkFormatPreferenceComboBox.getValue(),
+                                    "Укажите предпочтительный формат работы"
+                            ),
+                            candidateRemoteWorkPriorityCheckBox.isSelected(),
+                            candidateEnglishLevelField.getText(),
+                            candidateBusinessTripsReadyCheckBox.isSelected(),
+                            requireSelected(
+                                    candidateTestAssignmentReadinessComboBox.getValue(),
+                                    "Укажите готовность к тестовому заданию"
+                            ),
+                            requireSelected(
+                                    candidateStartAvailabilityComboBox.getValue(),
+                                    "Укажите готовность начать работу"
+                            ),
+                            candidateAllowRelatedExperienceDraftsCheckBox.isSelected(),
+                            candidateAdditionalConfirmedFactsTextArea.getText()
+                    );
+
+            setCandidateQuestionnaireProfileSaveInProgress(true);
+            setCandidateQuestionnaireProfileStatus("Сохраняем факты кандидата...");
+
+            saveCandidateQuestionnaireProfileUseCase.save(command)
+                    .whenComplete((profile, throwable) -> Platform.runLater(() -> {
+                        setCandidateQuestionnaireProfileSaveInProgress(false);
+
+                        if (throwable == null) {
+                            applyCandidateQuestionnaireProfile(profile);
+                            setCandidateQuestionnaireProfileStatus(
+                                    "Факты кандидата сохранены. "
+                                            + "Они будут использоваться для ответов на анкеты HH.ru."
+                            );
+                            return;
+                        }
+
+                        setCandidateQuestionnaireProfileStatus(
+                                "Не удалось сохранить факты кандидата: "
+                                        + rootMessage(throwable)
+                        );
+                    }));
+        } catch (RuntimeException exception) {
+            setCandidateQuestionnaireProfileStatus(
+                    "Проверьте данные профиля: " + rootMessage(exception)
+            );
+        }
+    }
+
+    private void loadCandidateQuestionnaireProfile(UserId userId) {
+        setCandidateQuestionnaireProfileSaveInProgress(true);
+        setCandidateQuestionnaireProfileStatus("Загружаем факты кандидата...");
+
+        getCandidateQuestionnaireProfileUseCase.findByUserId(userId)
+                .whenComplete((optionalProfile, throwable) -> Platform.runLater(() -> {
+                    setCandidateQuestionnaireProfileSaveInProgress(false);
+
+                    if (throwable != null) {
+                        setCandidateQuestionnaireProfileStatus(
+                                "Не удалось загрузить факты кандидата: "
+                                        + rootMessage(throwable)
+                        );
+                        return;
+                    }
+
+                    optionalProfile.ifPresentOrElse(
+                            profile -> {
+                                applyCandidateQuestionnaireProfile(profile);
+                                setCandidateQuestionnaireProfileStatus(
+                                        "Факты кандидата загружены."
+                                );
+                            },
+                            () -> setCandidateQuestionnaireProfileStatus(
+                                    "Профиль фактов ещё не сохранён. "
+                                            + "Проверьте предложенные значения и сохраните их."
+                            )
+                    );
+                }));
+    }
+
+    private void configureCandidateQuestionnaireProfileControls() {
+        candidateSalaryTaxBasisComboBox.getItems().setAll(
+                CandidateSalaryTaxBasis.values()
+        );
+        candidateWorkFormatPreferenceComboBox.getItems().setAll(
+                CandidateWorkFormatPreference.values()
+        );
+        candidateStartAvailabilityComboBox.getItems().setAll(
+                CandidateStartAvailability.values()
+        );
+        candidateTestAssignmentReadinessComboBox.getItems().setAll(
+                CandidateTestAssignmentReadiness.values()
+        );
+
+        candidateSalaryTaxBasisComboBox.setConverter(
+                displayConverter(this::formatSalaryTaxBasis)
+        );
+        candidateWorkFormatPreferenceComboBox.setConverter(
+                displayConverter(this::formatWorkFormatPreference)
+        );
+        candidateStartAvailabilityComboBox.setConverter(
+                displayConverter(this::formatStartAvailability)
+        );
+        candidateTestAssignmentReadinessComboBox.setConverter(
+                displayConverter(this::formatTestAssignmentReadiness)
+        );
+    }
+
+    private void applySuggestedCandidateQuestionnaireProfileDefaults() {
+        candidateTimeZoneIdField.setText("Europe/Moscow");
+        candidateSalaryMinField.setText("90000");
+        candidateSalaryMaxField.setText("150000");
+        candidateSalaryCurrencyField.setText("RUB");
+        candidateSalaryTaxBasisComboBox.setValue(
+                CandidateSalaryTaxBasis.UNSPECIFIED
+        );
+        candidateRelocationReadyCheckBox.setSelected(false);
+        candidateWorkFormatPreferenceComboBox.setValue(
+                CandidateWorkFormatPreference.ANY
+        );
+        candidateRemoteWorkPriorityCheckBox.setSelected(true);
+        candidateEnglishLevelField.setText("B2");
+        candidateBusinessTripsReadyCheckBox.setSelected(true);
+        candidateTestAssignmentReadinessComboBox.setValue(
+                CandidateTestAssignmentReadiness.UNKNOWN
+        );
+        candidateStartAvailabilityComboBox.setValue(
+                CandidateStartAvailability.IMMEDIATELY
+        );
+        candidateAllowRelatedExperienceDraftsCheckBox.setSelected(true);
+        candidateAdditionalConfirmedFactsTextArea.clear();
+    }
+
+    private void applyCandidateQuestionnaireProfile(
+            CandidateQuestionnaireProfileDto profile
+    ) {
+        candidateTimeZoneIdField.setText(profile.timeZoneId());
+        candidateSalaryMinField.setText(formatAmount(profile.salaryMin()));
+        candidateSalaryMaxField.setText(formatAmount(profile.salaryMax()));
+        candidateSalaryCurrencyField.setText(profile.salaryCurrency());
+        candidateSalaryTaxBasisComboBox.setValue(profile.salaryTaxBasis());
+        candidateRelocationReadyCheckBox.setSelected(profile.relocationReady());
+        candidateWorkFormatPreferenceComboBox.setValue(
+                profile.workFormatPreference()
+        );
+        candidateRemoteWorkPriorityCheckBox.setSelected(
+                profile.remoteWorkPriority()
+        );
+        candidateEnglishLevelField.setText(profile.englishLevel());
+        candidateBusinessTripsReadyCheckBox.setSelected(
+                profile.businessTripsReady()
+        );
+        candidateTestAssignmentReadinessComboBox.setValue(
+                profile.testAssignmentReadiness()
+        );
+        candidateStartAvailabilityComboBox.setValue(
+                profile.startAvailability()
+        );
+        candidateAllowRelatedExperienceDraftsCheckBox.setSelected(
+                profile.allowRelatedExperienceDrafts()
+        );
+        candidateAdditionalConfirmedFactsTextArea.setText(
+                profile.additionalConfirmedFacts()
+        );
+    }
+
+    private void setCandidateQuestionnaireProfileSaveInProgress(
+            boolean inProgress
+    ) {
+        if (saveCandidateQuestionnaireProfileButton != null) {
+            saveCandidateQuestionnaireProfileButton.setDisable(inProgress);
+        }
+    }
+
+    private void setCandidateQuestionnaireProfileStatus(String message) {
+        if (candidateQuestionnaireProfileStatusLabel != null) {
+            candidateQuestionnaireProfileStatusLabel.setText(message);
+        }
+    }
+
+    private String formatTestAssignmentReadiness(
+            CandidateTestAssignmentReadiness readiness
+    ) {
+        return switch (readiness) {
+            case YES -> "Готов выполнить";
+            case NO -> "Не рассматриваю";
+            case UNKNOWN -> "Не указано";
+        };
+    }
+
+    private BigDecimal parseMoney(String rawValue, String fieldName) {
+        String normalizedValue = rawValue == null
+                ? ""
+                : rawValue
+                .replace("\u00A0", "")
+                .replace(" ", "")
+                .replace(",", ".")
+                .trim();
+
+        if (normalizedValue.isBlank()) {
+            throw new IllegalArgumentException(
+                    fieldName + " не может быть пустой"
+            );
+        }
+
+        try {
+            return new BigDecimal(normalizedValue);
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException(
+                    fieldName + " должна быть числом",
+                    exception
+            );
+        }
+    }
+
+    private <T> T requireSelected(T value, String errorMessage) {
+        if (value == null) {
+            throw new IllegalArgumentException(errorMessage);
+        }
+
+        return value;
+    }
+
+    private String formatAmount(BigDecimal amount) {
+        return amount.stripTrailingZeros().toPlainString();
+    }
+
+    private String formatSalaryTaxBasis(CandidateSalaryTaxBasis taxBasis) {
+        return switch (taxBasis) {
+            case UNSPECIFIED -> "Не указано";
+            case GROSS -> "До вычета налогов";
+            case NET -> "На руки";
+        };
+    }
+
+    private String formatWorkFormatPreference(
+            CandidateWorkFormatPreference workFormatPreference
+    ) {
+        return switch (workFormatPreference) {
+            case ANY -> "Любой";
+            case REMOTE -> "Удалённый";
+            case HYBRID -> "Гибридный";
+            case OFFICE -> "Офис";
+        };
+    }
+
+    private String formatStartAvailability(
+            CandidateStartAvailability startAvailability
+    ) {
+        return switch (startAvailability) {
+            case IMMEDIATELY -> "Сразу";
+            case WITHIN_TWO_WEEKS -> "В течение двух недель";
+            case WITHIN_ONE_MONTH -> "В течение месяца";
+            case NEGOTIABLE -> "По договорённости";
+        };
+    }
+
+    private <T> StringConverter<T> displayConverter(
+            Function<T, String> formatter
+    ) {
+        return new StringConverter<>() {
+            @Override
+            public String toString(T value) {
+                return value == null ? "" : formatter.apply(value);
+            }
+
+            @Override
+            public T fromString(String value) {
+                return null;
+            }
+        };
     }
 
     private String rootMessage(Throwable throwable) {

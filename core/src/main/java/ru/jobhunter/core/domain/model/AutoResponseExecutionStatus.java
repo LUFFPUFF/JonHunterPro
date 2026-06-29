@@ -3,6 +3,12 @@ package ru.jobhunter.core.domain.model;
 public enum AutoResponseExecutionStatus {
 
     SUCCESS,
+    PARTIAL_SUCCESS,
     FAILED,
-    NOT_AVAILABLE
+    NOT_AVAILABLE,
+    PREFLIGHT_COMPLETED,
+    ALREADY_RESPONDED,
+    QUESTIONNAIRE_REQUIRED,
+    QUESTIONNAIRE_FILLED_REVIEW_REQUIRED,
+    CANDIDATE_APPROVAL_REQUIRED
 }

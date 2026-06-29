@@ -3,6 +3,7 @@ package ru.jobhunter.infrastructure.config;
 import okhttp3.OkHttpClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 import java.time.Duration;
 
@@ -10,6 +11,7 @@ import java.time.Duration;
 public class HttpClientConfig {
 
     @Bean
+    @Primary
     public OkHttpClient okHttpClient() {
         return new OkHttpClient.Builder()
                 .connectTimeout(Duration.ofSeconds(15))

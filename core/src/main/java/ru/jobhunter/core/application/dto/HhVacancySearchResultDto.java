@@ -12,6 +12,23 @@ public record HhVacancySearchResultDto(
 ) {
 
     public HhVacancySearchResultDto {
-        vacancies = List.copyOf(Objects.requireNonNull(vacancies, "Vacancies must not be null"));
+        vacancies = List.copyOf(
+                Objects.requireNonNull(
+                        vacancies,
+                        "Vacancies must not be null"
+                )
+        );
+    }
+
+    public boolean hasPreviousPage() {
+        return page > 0;
+    }
+
+    public boolean hasNextPage() {
+        return pages > 0 && page < pages - 1;
+    }
+
+    public int displayedPageNumber() {
+        return pages <= 0 ? 0 : page + 1;
     }
 }

@@ -1,9 +1,6 @@
 package ru.jobhunter.core.domain.model;
 
 public enum AutoResponseQueueStatus {
-    QUEUED,
-    READY,
-    SENT,
-    FAILED,
-    SKIPPED
+
+    QUEUED, READY, IN_PROGRESS, WAITING_CANDIDATE_APPROVAL, SENT, PARTIAL_SUCCESS, FAILED, SKIPPED
 }

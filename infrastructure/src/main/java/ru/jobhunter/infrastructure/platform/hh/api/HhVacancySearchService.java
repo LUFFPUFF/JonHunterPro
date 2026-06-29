@@ -25,11 +25,19 @@ public class HhVacancySearchService implements SearchHhVacanciesUseCase {
     private static final Logger log = LoggerFactory.getLogger(HhVacancySearchService.class);
 
     private final HhApiClient apiClient;
+    private final HhApplicationTokenProperties applicationTokenProperties;
 
-    public HhVacancySearchService(HhApiClient apiClient) {
+    public HhVacancySearchService(
+            HhApiClient apiClient,
+            HhApplicationTokenProperties applicationTokenProperties
+    ) {
         this.apiClient = Objects.requireNonNull(
                 apiClient,
                 "HH API client must not be null"
+        );
+        this.applicationTokenProperties = Objects.requireNonNull(
+                applicationTokenProperties,
+                "HH application token properties must not be null"
         );
     }
 
@@ -45,14 +53,16 @@ public class HhVacancySearchService implements SearchHhVacanciesUseCase {
         );
 
         log.info(
-                "Searching HH.ru vacancies through use case: textProvided={}, areaProvided={}, page={}, perPage={}",
+                "Searching HH.ru vacancies through use case with application token: textProvided={}, areaProvided={}, page={}, perPage={}",
                 query.text() != null && !query.text().isBlank(),
                 query.area() != null && !query.area().isBlank(),
                 query.page(),
                 query.perPage()
         );
 
-        return apiClient.searchVacancies(request)
+        String applicationAccessToken = applicationTokenProperties.requireAccessToken();
+
+        return apiClient.searchVacanciesAuthorized(request, applicationAccessToken)
                 .thenApply(this::toDto);
     }
 

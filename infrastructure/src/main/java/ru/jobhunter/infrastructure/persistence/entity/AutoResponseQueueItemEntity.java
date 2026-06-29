@@ -39,6 +39,12 @@ public class AutoResponseQueueItemEntity {
     @Column(name = "status", nullable = false, length = 50)
     private String status;
 
+    @Column(name = "candidate_approval_reason")
+    private String candidateApprovalReason;
+
+    @Column(name = "diagnostic_directory")
+    private String diagnosticDirectory;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -134,5 +140,25 @@ public class AutoResponseQueueItemEntity {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getCandidateApprovalReason() {
+        return candidateApprovalReason;
+    }
+
+    public void setCandidateApprovalReason(
+            String candidateApprovalReason
+    ) {
+        this.candidateApprovalReason = candidateApprovalReason;
+    }
+
+    public String getDiagnosticDirectory() {
+        return diagnosticDirectory;
+    }
+
+    public void setDiagnosticDirectory(
+            String diagnosticDirectory
+    ) {
+        this.diagnosticDirectory = diagnosticDirectory;
     }
 }

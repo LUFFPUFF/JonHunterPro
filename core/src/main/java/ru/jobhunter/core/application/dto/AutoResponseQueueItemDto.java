@@ -15,7 +15,42 @@ public record AutoResponseQueueItemDto(
         String areaName,
         String vacancyUrl,
         AutoResponseQueueStatus status,
+        String candidateApprovalReason,
+        String diagnosticDirectory,
         Instant createdAt,
         Instant updatedAt
 ) {
+
+    public AutoResponseQueueItemDto(
+            UUID id,
+            VacancySource source,
+            String externalVacancyId,
+            String vacancyName,
+            String employerName,
+            String areaName,
+            String vacancyUrl,
+            AutoResponseQueueStatus status,
+            Instant createdAt,
+            Instant updatedAt
+    ) {
+        this(
+                id,
+                source,
+                externalVacancyId,
+                vacancyName,
+                employerName,
+                areaName,
+                vacancyUrl,
+                status,
+                null,
+                null,
+                createdAt,
+                updatedAt
+        );
+    }
+
+    public boolean isWaitingCandidateApproval() {
+        return status == AutoResponseQueueStatus
+                .WAITING_CANDIDATE_APPROVAL;
+    }
 }

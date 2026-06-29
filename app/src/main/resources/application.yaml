@@ -42,10 +42,47 @@ spring:
     validate-on-migrate: true
 
 jobhunter:
+  hh:
+    questionnaire:
+      execution-mode: APPLY
+
   logging:
     path: ${JOBHUNTER_LOGGING_PATH:logs}
     console-level: ${JOBHUNTER_LOGGING_CONSOLE_LEVEL:INFO}
     file-level: ${JOBHUNTER_LOGGING_FILE_LEVEL:DEBUG}
+
+  llm:
+    groq:
+      enabled: ${GROQ_ENABLED:false}
+      base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}
+      api-key: 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
+      model: ${GROQ_MODEL:openai/gpt-oss-120b}
+      reasoning-effort: ${GROQ_REASONING_EFFORT:low}
+      connect-timeout-seconds: ${GROQ_CONNECT_TIMEOUT_SECONDS:15}
+      read-timeout-seconds: ${GROQ_READ_TIMEOUT_SECONDS:120}
+      write-timeout-seconds: ${GROQ_WRITE_TIMEOUT_SECONDS:30}
+
+    ollama:
+      enabled: false
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      model: ${OLLAMA_MODEL:qwen3:14b}
+      connect-timeout-seconds: ${OLLAMA_CONNECT_TIMEOUT_SECONDS:10}
+      read-timeout-seconds: ${OLLAMA_READ_TIMEOUT_SECONDS:300}
+      write-timeout-seconds: ${OLLAMA_WRITE_TIMEOUT_SECONDS:30}
+      context-length: ${OLLAMA_CONTEXT_LENGTH:8192}
+      keep-alive: ${OLLAMA_KEEP_ALIVE:10m}
+
+    openrouter:
+      enabled: false
+      base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai}
+      api-key: ${OPENROUTER_API_KEY:}
+      primary-model: ${OPENROUTER_PRIMARY_MODEL:qwen/qwen3-next-80b-a3b-instruct:free}
+      fallback-models: ${OPENROUTER_FALLBACK_MODELS:openai/gpt-oss-20b:free}
+      http-referer: ${OPENROUTER_HTTP_REFERER:https://jobhunterpro.local}
+      application-title: ${OPENROUTER_APPLICATION_TITLE:JobHunterPro}
+      connect-timeout-seconds: ${OPENROUTER_CONNECT_TIMEOUT_SECONDS:60}
+      read-timeout-seconds: ${OPENROUTER_READ_TIMEOUT_SECONDS:90}
+      write-timeout-seconds: ${OPENROUTER_WRITE_TIMEOUT_SECONDS:60}
 
   integrations:
     hh:
@@ -63,6 +100,17 @@ jobhunter:
         callback-port: ${HH_CALLBACK_PORT:54345}
         state-byte-length: ${HH_OAUTH_STATE_BYTE_LENGTH:32}
         user-agent: ${HH_USER_AGENT:JobHunterPro/0.1.0 (beatsluffi@gmail.com)}
+      application:
+        access-token: APPLRHOTSV3IRS5O2LH4A1A4CHMM3GDNO5AV0G7EPPAFE03A1PK568AO8E7AFHE1
+      auto-response:
+        default-resume-id: dc4706b7ff0e7f30da0039ed1f736853636d64
+        default-message: ${HH_AUTO_RESPONSE_DEFAULT_MESSAGE:Здравствуйте! Откликаюсь на вакансию "{vacancyName}". Буду рад обсудить детали.}
+      browser-auto-response:
+        enabled: ${HH_BROWSER_AUTO_RESPONSE_ENABLED:true}
+        mode: ${HH_BROWSER_AUTO_RESPONSE_MODE:EXECUTE}
+        headless: ${HH_BROWSER_AUTO_RESPONSE_HEADLESS:false}
+        user-data-dir: ${HH_BROWSER_USER_DATA_DIR:${user.home}/.jobhunterpro/hh-chrome-profile}
+        wait-timeout-seconds: ${HH_BROWSER_WAIT_TIMEOUT_SECONDS:10}
 
     habr-career:
       api:

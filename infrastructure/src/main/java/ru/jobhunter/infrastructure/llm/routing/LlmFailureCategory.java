@@ -1,0 +1,11 @@
+package ru.jobhunter.infrastructure.llm.routing;
+
+public enum LlmFailureCategory {
+    OLLAMA_RUNTIME_CRASH,
+    OLLAMA_TIMEOUT,
+    OPENROUTER_RATE_LIMIT,
+    OPENROUTER_EMPTY_CONTENT,
+    OPENROUTER_MODELS_EXHAUSTED,
+    NETWORK_UNAVAILABLE,
+    INVALID_MODEL_OUTPUT
+}

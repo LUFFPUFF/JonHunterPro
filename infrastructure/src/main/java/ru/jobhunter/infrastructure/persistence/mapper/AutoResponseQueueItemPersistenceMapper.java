@@ -23,6 +23,8 @@ public class AutoResponseQueueItemPersistenceMapper {
         entity.setAreaName(item.areaName());
         entity.setVacancyUrl(item.vacancyUrl());
         entity.setStatus(item.status().name());
+        entity.setCandidateApprovalReason(item.candidateApprovalReason());
+        entity.setDiagnosticDirectory(item.diagnosticDirectory());
         entity.setCreatedAt(item.createdAt());
         entity.setUpdatedAt(item.updatedAt());
 
@@ -40,6 +42,8 @@ public class AutoResponseQueueItemPersistenceMapper {
                 entity.getAreaName(),
                 entity.getVacancyUrl(),
                 AutoResponseQueueStatus.valueOf(entity.getStatus()),
+                entity.getCandidateApprovalReason(),
+                entity.getDiagnosticDirectory(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );

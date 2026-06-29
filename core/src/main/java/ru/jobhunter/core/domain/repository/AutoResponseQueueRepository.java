@@ -38,4 +38,16 @@ public interface AutoResponseQueueRepository {
             UserId userId,
             AutoResponseQueueStatus status
     );
+
+    CompletableFuture<Optional<AutoResponseQueueItem>> markCandidateApprovalRequired(
+            AutoResponseQueueItemId itemId,
+            UserId userId,
+            String approvalReason,
+            String diagnosticDirectory
+    );
+
+    CompletableFuture<Optional<AutoResponseQueueItem>> claimReadyForExecution(
+            AutoResponseQueueItemId itemId,
+            UserId userId
+    );
 }

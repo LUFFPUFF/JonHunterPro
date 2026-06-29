@@ -2,118 +2,295 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox xmlns="http://javafx.com/javafx"
-      xmlns:fx="http://javafx.com/fxml"
-      fx:controller="ru.jobhunter.ui.controller.ProfileController"
-      spacing="18"
-      alignment="TOP_LEFT">
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="ru.jobhunter.ui.controller.ProfileController"
+            fitToWidth="true"
+            hbarPolicy="NEVER">
 
-    <padding>
-        <Insets top="34" right="42" bottom="34" left="42"/>
-    </padding>
+    <content>
+        <VBox spacing="18"
+              alignment="TOP_LEFT"
+              maxWidth="760">
 
-    <Label text="Профиль пользователя"
-           style="-fx-font-size: 28px; -fx-font-weight: bold;"/>
+            <padding>
+                <Insets top="34" right="42" bottom="34" left="42"/>
+            </padding>
 
-    <Label text="Основная информация об авторизованном пользователе."
-           style="-fx-font-size: 15px; -fx-text-fill: #555555;"/>
+            <Label text="Профиль пользователя"
+                   style="-fx-font-size: 28px; -fx-font-weight: bold;"/>
 
-    <Separator prefWidth="620"/>
+            <Label text="Основная информация об авторизованном пользователе."
+                   style="-fx-font-size: 15px; -fx-text-fill: #555555;"/>
 
-    <GridPane hgap="18" vgap="14">
-        <Label text="ФИО:"
-               style="-fx-font-weight: bold;"
-               GridPane.rowIndex="0"
-               GridPane.columnIndex="0"/>
+            <Separator prefWidth="700"/>
 
-        <Label fx:id="fullNameLabel"
-               GridPane.rowIndex="0"
-               GridPane.columnIndex="1"/>
+            <GridPane hgap="18" vgap="14">
+                <Label text="ФИО:"
+                       style="-fx-font-weight: bold;"
+                       GridPane.rowIndex="0"
+                       GridPane.columnIndex="0"/>
 
-        <Label text="Email:"
-               style="-fx-font-weight: bold;"
-               GridPane.rowIndex="1"
-               GridPane.columnIndex="0"/>
+                <Label fx:id="fullNameLabel"
+                       GridPane.rowIndex="0"
+                       GridPane.columnIndex="1"/>
 
-        <Label fx:id="emailLabel"
-               GridPane.rowIndex="1"
-               GridPane.columnIndex="1"/>
+                <Label text="Email:"
+                       style="-fx-font-weight: bold;"
+                       GridPane.rowIndex="1"
+                       GridPane.columnIndex="0"/>
 
-        <Label text="User ID:"
-               style="-fx-font-weight: bold;"
-               GridPane.rowIndex="2"
-               GridPane.columnIndex="0"/>
+                <Label fx:id="emailLabel"
+                       GridPane.rowIndex="1"
+                       GridPane.columnIndex="1"/>
 
-        <Label fx:id="userIdLabel"
-               wrapText="true"
-               GridPane.rowIndex="2"
-               GridPane.columnIndex="1"/>
-    </GridPane>
+                <Label text="User ID:"
+                       style="-fx-font-weight: bold;"
+                       GridPane.rowIndex="2"
+                       GridPane.columnIndex="0"/>
 
-    <Separator prefWidth="620"/>
+                <Label fx:id="userIdLabel"
+                       wrapText="true"
+                       GridPane.rowIndex="2"
+                       GridPane.columnIndex="1"/>
+            </GridPane>
 
-    <VBox spacing="8">
-        <Label text="Интеграции"
-               style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+            <Separator prefWidth="700"/>
 
-        <HBox spacing="12" alignment="CENTER_LEFT">
-            <Button fx:id="connectHhButton"
-                    text="Подключить HH.ru"
-                    onAction="#onConnectHhClicked"/>
+            <VBox spacing="10">
+                <Label text="Факты кандидата для анкет HH.ru"
+                       style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
 
-            <Label fx:id="hhConnectionStatusLabel"
-                   text="HH.ru не подключён"
-                   wrapText="true"
-                   maxWidth="420"/>
-        </HBox>
+                <Label text="Подтверждённые данные передаются LLM. Черновики по смежным навыкам помечаются как требующие проверки и не должны участвовать в автоматической отправке анкеты."
+                       wrapText="true"
+                       maxWidth="700"
+                       style="-fx-font-size: 14px; -fx-text-fill: #555555;"/>
 
-        <HBox spacing="12" alignment="CENTER_LEFT">
-            <Button fx:id="connectHabrCareerButton"
-                    text="Подключить Habr Career"
-                    onAction="#onConnectHabrCareerClicked"/>
+                <GridPane hgap="16" vgap="12">
 
-            <Label fx:id="habrCareerConnectionStatusLabel"
-                   text="Habr Career не подключён"
-                   wrapText="true"
-                   maxWidth="420"/>
-        </HBox>
+                    <Label text="Часовой пояс:"
+                           style="-fx-font-weight: bold;"
+                           GridPane.rowIndex="0"
+                           GridPane.columnIndex="0"/>
 
-        <HBox spacing="12" alignment="CENTER_LEFT">
-            <Button fx:id="checkHabrCareerApiButton"
-                    text="Проверить Habr Career API"
-                    onAction="#onCheckHabrCareerApiClicked"/>
+                    <TextField fx:id="candidateTimeZoneIdField"
+                               prefWidth="260"
+                               promptText="Например: Europe/Moscow"
+                               GridPane.rowIndex="0"
+                               GridPane.columnIndex="1"/>
 
-            <Label fx:id="habrCareerApiStatusLabel"
-                   text="Habr Career API не проверялся"
-                   wrapText="true"
-                   maxWidth="420"/>
-        </HBox>
+                    <Label text="Зарплата от:"
+                           style="-fx-font-weight: bold;"
+                           GridPane.rowIndex="1"
+                           GridPane.columnIndex="0"/>
 
-        <HBox spacing="12" alignment="CENTER_LEFT">
-            <Button fx:id="checkHhApiButton"
-                    text="Проверить HH.ru API"
-                    onAction="#onCheckHhApiClicked"/>
+                    <HBox spacing="8"
+                          GridPane.rowIndex="1"
+                          GridPane.columnIndex="1">
+                        <TextField fx:id="candidateSalaryMinField"
+                                   prefWidth="110"
+                                   promptText="90000"/>
+                        <Label text="до"/>
+                        <TextField fx:id="candidateSalaryMaxField"
+                                   prefWidth="110"
+                                   promptText="150000"/>
+                        <TextField fx:id="candidateSalaryCurrencyField"
+                                   prefWidth="70"
+                                   promptText="RUB"/>
+                    </HBox>
 
-            <Label fx:id="hhApiStatusLabel"
-                   text="HH API не проверялся"
-                   wrapText="true"
-                   maxWidth="420"/>
-        </HBox>
-    </VBox>
+                    <Label text="Основа зарплаты:"
+                           style="-fx-font-weight: bold;"
+                           GridPane.rowIndex="2"
+                           GridPane.columnIndex="0"/>
 
-    <Separator prefWidth="620"/>
+                    <ComboBox fx:id="candidateSalaryTaxBasisComboBox"
+                              prefWidth="260"
+                              GridPane.rowIndex="2"
+                              GridPane.columnIndex="1"/>
 
-    <Label text="На следующих этапах здесь появятся резюме, настройки профиля, API-токены платформ и история действий."
-           wrapText="true"
-           maxWidth="620"
-           style="-fx-font-size: 14px; -fx-text-fill: #555555;"/>
+                    <Label text="Переезд:"
+                           style="-fx-font-weight: bold;"
+                           GridPane.rowIndex="3"
+                           GridPane.columnIndex="0"/>
 
-    <Button text="Выйти из аккаунта"
-            onAction="#onLogout"/>
-</VBox>
+                    <CheckBox fx:id="candidateRelocationReadyCheckBox"
+                              text="Готов к переезду"
+                              GridPane.rowIndex="3"
+                              GridPane.columnIndex="1"/>
+
+                    <Label text="Формат работы:"
+                           style="-fx-font-weight: bold;"
+                           GridPane.rowIndex="4"
+                           GridPane.columnIndex="0"/>
+
+                    <HBox spacing="14"
+                          alignment="CENTER_LEFT"
+                          GridPane.rowIndex="4"
+                          GridPane.columnIndex="1">
+                        <ComboBox fx:id="candidateWorkFormatPreferenceComboBox"
+                                  prefWidth="190"/>
+
+                        <CheckBox fx:id="candidateRemoteWorkPriorityCheckBox"
+                                  text="Удалёнка в приоритете"/>
+                    </HBox>
+
+                    <Label text="Английский:"
+                           style="-fx-font-weight: bold;"
+                           GridPane.rowIndex="5"
+                           GridPane.columnIndex="0"/>
+
+                    <TextField fx:id="candidateEnglishLevelField"
+                               prefWidth="260"
+                               promptText="Например: B2"
+                               GridPane.rowIndex="5"
+                               GridPane.columnIndex="1"/>
+
+                    <Label text="Командировки:"
+                           style="-fx-font-weight: bold;"
+                           GridPane.rowIndex="6"
+                           GridPane.columnIndex="0"/>
+
+                    <CheckBox fx:id="candidateBusinessTripsReadyCheckBox"
+                              text="Готов к командировкам"
+                              GridPane.rowIndex="6"
+                              GridPane.columnIndex="1"/>
+
+                    <Label text="Тестовое задание:"
+                           style="-fx-font-weight: bold;"
+                           GridPane.rowIndex="7"
+                           GridPane.columnIndex="0"/>
+
+                    <ComboBox fx:id="candidateTestAssignmentReadinessComboBox"
+                              prefWidth="260"
+                              GridPane.rowIndex="7"
+                              GridPane.columnIndex="1"/>
+
+                    <Label text="Начало работы:"
+                           style="-fx-font-weight: bold;"
+                           GridPane.rowIndex="7"
+                           GridPane.columnIndex="0"/>
+
+                    <ComboBox fx:id="candidateStartAvailabilityComboBox"
+                              prefWidth="260"
+                              GridPane.rowIndex="7"
+                              GridPane.columnIndex="1"/>
+
+                    <Label text="Черновики навыков:"
+                           style="-fx-font-weight: bold;"
+                           GridPane.rowIndex="8"
+                           GridPane.columnIndex="0"/>
+
+                    <CheckBox fx:id="candidateAllowRelatedExperienceDraftsCheckBox"
+                              text="Разрешить черновики по смежному опыту"
+                              GridPane.rowIndex="8"
+                              GridPane.columnIndex="1"/>
+
+                    <Label text="Дополнительные подтверждённые факты:"
+                           style="-fx-font-weight: bold;"
+                           wrapText="true"
+                           maxWidth="180"
+                           GridPane.rowIndex="9"
+                           GridPane.columnIndex="0"/>
+
+                    <TextArea fx:id="candidateAdditionalConfirmedFactsTextArea"
+                              prefRowCount="4"
+                              prefWidth="430"
+                              wrapText="true"
+                              promptText="Указывай только факты, которые можно уверенно использовать в ответах работодателю."
+                              GridPane.rowIndex="9"
+                              GridPane.columnIndex="1"/>
+                </GridPane>
+
+                <HBox spacing="12" alignment="CENTER_LEFT">
+                    <Button fx:id="saveCandidateQuestionnaireProfileButton"
+                            text="Сохранить факты для анкет"
+                            onAction="#onSaveCandidateQuestionnaireProfileClicked"/>
+
+                    <Label fx:id="candidateQuestionnaireProfileStatusLabel"
+                           text="Факты кандидата ещё не сохранены."
+                           wrapText="true"
+                           maxWidth="460"/>
+                </HBox>
+            </VBox>
+
+            <Separator prefWidth="700"/>
+
+            <VBox spacing="8">
+                <Label text="Интеграции"
+                       style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+
+                <HBox spacing="12" alignment="CENTER_LEFT">
+                    <Button fx:id="connectHhButton"
+                            text="Подключить HH.ru"
+                            onAction="#onConnectHhClicked"/>
+
+                    <Label fx:id="hhConnectionStatusLabel"
+                           text="HH.ru не подключён"
+                           wrapText="true"
+                           maxWidth="420"/>
+                </HBox>
+
+                <HBox spacing="12" alignment="CENTER_LEFT">
+                    <Button fx:id="connectHabrCareerButton"
+                            text="Подключить Habr Career"
+                            onAction="#onConnectHabrCareerClicked"/>
+
+                    <Label fx:id="habrCareerConnectionStatusLabel"
+                           text="Habr Career не подключён"
+                           wrapText="true"
+                           maxWidth="420"/>
+                </HBox>
+
+                <HBox spacing="12" alignment="CENTER_LEFT">
+                    <Button fx:id="checkHabrCareerApiButton"
+                            text="Проверить Habr Career API"
+                            onAction="#onCheckHabrCareerApiClicked"/>
+
+                    <Label fx:id="habrCareerApiStatusLabel"
+                           text="Habr Career API не проверялся"
+                           wrapText="true"
+                           maxWidth="420"/>
+                </HBox>
+
+                <HBox spacing="12" alignment="CENTER_LEFT">
+                    <Button fx:id="checkHhApiButton"
+                            text="Проверить HH.ru API"
+                            onAction="#onCheckHhApiClicked"/>
+
+                    <Label fx:id="hhApiStatusLabel"
+                           text="HH API не проверялся"
+                           wrapText="true"
+                           maxWidth="420"/>
+                </HBox>
+
+                <HBox spacing="12" alignment="CENTER_LEFT">
+                    <Button fx:id="checkHhResumesButton"
+                            text="Проверить резюме HH.ru"
+                            onAction="#onCheckHhResumesClicked"/>
+
+                    <Label fx:id="hhResumesStatusLabel"
+                           text="Резюме HH.ru не проверялись"
+                           wrapText="true"
+                           maxWidth="620"/>
+                </HBox>
+            </VBox>
+
+            <Separator prefWidth="700"/>
+
+            <Button text="Выйти из аккаунта"
+                    onAction="#onLogout"/>
+        </VBox>
+    </content>
+</ScrollPane>

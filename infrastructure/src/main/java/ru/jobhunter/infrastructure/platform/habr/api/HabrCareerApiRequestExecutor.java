@@ -28,7 +28,7 @@ public class HabrCareerApiRequestExecutor {
 
     public HabrCareerApiRequestExecutor(
             HabrCareerApiProperties properties,
-            OkHttpClient okHttpClient,
+            @Qualifier("okHttpClient") OkHttpClient okHttpClient,
             ObjectMapper objectMapper,
             @Qualifier("applicationTaskExecutor") ExecutorService executorService
     ) {

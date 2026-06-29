@@ -6,10 +6,12 @@ import org.springframework.stereotype.Service;
 import ru.jobhunter.core.application.dto.*;
 import ru.jobhunter.core.application.usecase.autoresponse.*;
 import ru.jobhunter.core.domain.model.AutoResponseQueueItem;
+import ru.jobhunter.core.domain.model.AutoResponseQueueItemId;
 import ru.jobhunter.core.domain.model.AutoResponseQueueStatus;
 import ru.jobhunter.core.domain.model.UserId;
 import ru.jobhunter.core.domain.repository.AutoResponseQueueRepository;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -18,10 +20,12 @@ import java.util.concurrent.CompletableFuture;
 @Service
 public class AutoResponseQueueService implements
         AddVacancyToAutoResponseQueueUseCase,
+        AddVacanciesToAutoResponseQueueUseCase,
         GetAutoResponseQueueUseCase,
         GetReadyAutoResponseQueueItemsUseCase,
         RemoveAutoResponseQueueItemUseCase,
-        UpdateAutoResponseQueueItemStatusUseCase
+        UpdateAutoResponseQueueItemStatusUseCase,
+        MarkAutoResponseQueueItemsReadyUseCase
 {
 
     private static final Logger log = LoggerFactory.getLogger(AutoResponseQueueService.class);
@@ -100,6 +104,8 @@ public class AutoResponseQueueService implements
                 item.areaName(),
                 item.vacancyUrl(),
                 item.status(),
+                item.candidateApprovalReason(),
+                item.diagnosticDirectory(),
                 item.createdAt(),
                 item.updatedAt()
         );
@@ -200,5 +206,340 @@ public class AutoResponseQueueService implements
                         );
                     }
                 });
+    }
+
+    @Override
+    public CompletableFuture<AddVacanciesToAutoResponseQueueResultDto> addAllToQueue(
+            AddVacanciesToAutoResponseQueueCommand command
+    ) {
+        Objects.requireNonNull(
+                command,
+                "Add vacancies to auto response queue command must not be null"
+        );
+
+        CompletableFuture<BatchAdditionAccumulator> pipeline =
+                CompletableFuture.completedFuture(
+                        BatchAdditionAccumulator.empty()
+                );
+
+        for (AddVacancyToAutoResponseQueueCommand vacancyCommand
+                : command.vacancies()) {
+
+            pipeline = pipeline.thenCompose(accumulator ->
+                    addToQueue(vacancyCommand)
+                            .handle((result, throwable) -> {
+                                if (throwable != null) {
+                                    String message = rootMessage(throwable);
+
+                                    log.warn(
+                                            "Could not add vacancy to auto response queue "
+                                                    + "in batch: userId={}, source={}, "
+                                                    + "externalVacancyId={}, reason={}",
+                                            vacancyCommand.userId(),
+                                            vacancyCommand.source(),
+                                            vacancyCommand.externalVacancyId(),
+                                            message,
+                                            throwable
+                                    );
+
+                                    return accumulator.withFailure(
+                                            new AddVacancyToAutoResponseQueueFailureDto(
+                                                    vacancyCommand.externalVacancyId(),
+                                                    vacancyCommand.vacancyName(),
+                                                    message
+                                            )
+                                    );
+                                }
+
+                                if (result.created()) {
+                                    return accumulator.withAdded();
+                                }
+
+                                return accumulator.withAlreadyExists();
+                            })
+            );
+        }
+
+        return pipeline.thenApply(accumulator -> {
+            AddVacanciesToAutoResponseQueueResultDto result =
+                    new AddVacanciesToAutoResponseQueueResultDto(
+                            command.vacancies().size(),
+                            accumulator.addedCount(),
+                            accumulator.alreadyExistsCount(),
+                            accumulator.failures()
+                    );
+
+            log.info(
+                    "Auto response queue batch addition completed: "
+                            + "userId={}, requestedCount={}, addedCount={}, "
+                            + "alreadyExistsCount={}, failedCount={}",
+                    command.userId(),
+                    result.requestedCount(),
+                    result.addedCount(),
+                    result.alreadyExistsCount(),
+                    result.failedCount()
+            );
+
+            return result;
+        });
+    }
+
+    private String rootMessage(
+            Throwable throwable
+    ) {
+        Throwable current = throwable;
+
+        while (current.getCause() != null) {
+            current = current.getCause();
+        }
+
+        String message = current.getMessage();
+
+        return message == null || message.isBlank()
+                ? current.getClass().getSimpleName()
+                : message;
+    }
+
+    @Override
+    public CompletableFuture<MarkAutoResponseQueueItemsReadyResultDto> markReady(
+            MarkAutoResponseQueueItemsReadyCommand command
+    ) {
+        Objects.requireNonNull(
+                command,
+                "Mark queue items ready command must not be null"
+        );
+
+        CompletableFuture<ReadyBatchAccumulator> pipeline =
+                CompletableFuture.completedFuture(
+                        ReadyBatchAccumulator.empty()
+                );
+
+        for (AutoResponseQueueItemId itemId : command.itemIds()) {
+            pipeline = pipeline.thenCompose(accumulator ->
+                    markSingleItemReady(
+                            command.userId(),
+                            itemId
+                    ).handle((result, throwable) -> {
+                        if (throwable != null) {
+                            return accumulator.withFailure(
+                                    "itemId="
+                                            + itemId.value()
+                                            + ": "
+                                            + rootMessage(throwable)
+                            );
+                        }
+
+                        return switch (result) {
+                            case MARKED_READY ->
+                                    accumulator.withMarkedReady();
+                            case ALREADY_READY ->
+                                    accumulator.withAlreadyReady();
+                            case NOT_ELIGIBLE ->
+                                    accumulator.withNotEligible();
+                            case NOT_FOUND ->
+                                    accumulator.withNotFound();
+                        };
+                    })
+            );
+        }
+
+        return pipeline.thenApply(accumulator -> {
+            MarkAutoResponseQueueItemsReadyResultDto result =
+                    new MarkAutoResponseQueueItemsReadyResultDto(
+                            command.itemIds().size(),
+                            accumulator.markedReadyCount(),
+                            accumulator.alreadyReadyCount(),
+                            accumulator.notEligibleCount(),
+                            accumulator.notFoundCount(),
+                            accumulator.failures()
+                    );
+
+            log.info(
+                    "Queue items batch-ready operation completed: "
+                            + "userId={}, requested={}, markedReady={}, "
+                            + "alreadyReady={}, notEligible={}, notFound={}, "
+                            + "failed={}",
+                    command.userId(),
+                    result.requestedCount(),
+                    result.markedReadyCount(),
+                    result.alreadyReadyCount(),
+                    result.notEligibleCount(),
+                    result.notFoundCount(),
+                    result.failedCount()
+            );
+
+            return result;
+        });
+    }
+
+    private CompletableFuture<ReadyBatchItemResult> markSingleItemReady(
+            UserId userId,
+            AutoResponseQueueItemId itemId
+    ) {
+        return queueRepository.findByIdAndUserId(
+                        itemId,
+                        userId
+                )
+                .thenCompose(optionalItem -> {
+                    if (optionalItem.isEmpty()) {
+                        return CompletableFuture.completedFuture(
+                                ReadyBatchItemResult.NOT_FOUND
+                        );
+                    }
+
+                    AutoResponseQueueItem item = optionalItem.get();
+
+                    if (item.status() == AutoResponseQueueStatus.READY) {
+                        return CompletableFuture.completedFuture(
+                                ReadyBatchItemResult.ALREADY_READY
+                        );
+                    }
+
+                    if (item.status() != AutoResponseQueueStatus.QUEUED) {
+                        return CompletableFuture.completedFuture(
+                                ReadyBatchItemResult.NOT_ELIGIBLE
+                        );
+                    }
+
+                    return queueRepository.updateStatus(
+                                    itemId,
+                                    userId,
+                                    AutoResponseQueueStatus.READY
+                            )
+                            .thenApply(updatedItem ->
+                                    updatedItem.isPresent()
+                                            ? ReadyBatchItemResult.MARKED_READY
+                                            : ReadyBatchItemResult.NOT_FOUND
+                            );
+                });
+    }
+
+
+
+    private record BatchAdditionAccumulator(
+            int addedCount,
+            int alreadyExistsCount,
+            List<AddVacancyToAutoResponseQueueFailureDto> failures
+    ) {
+
+        private static BatchAdditionAccumulator empty() {
+            return new BatchAdditionAccumulator(
+                    0,
+                    0,
+                    List.of()
+            );
+        }
+
+        private BatchAdditionAccumulator withAdded() {
+            return new BatchAdditionAccumulator(
+                    addedCount + 1,
+                    alreadyExistsCount,
+                    failures
+            );
+        }
+
+        private BatchAdditionAccumulator withAlreadyExists() {
+            return new BatchAdditionAccumulator(
+                    addedCount,
+                    alreadyExistsCount + 1,
+                    failures
+            );
+        }
+
+        private BatchAdditionAccumulator withFailure(
+                AddVacancyToAutoResponseQueueFailureDto failure
+        ) {
+            List<AddVacancyToAutoResponseQueueFailureDto> updatedFailures =
+                    new java.util.ArrayList<>(failures);
+
+            updatedFailures.add(failure);
+
+            return new BatchAdditionAccumulator(
+                    addedCount,
+                    alreadyExistsCount,
+                    List.copyOf(updatedFailures)
+            );
+        }
+    }
+
+    private enum ReadyBatchItemResult {
+        MARKED_READY,
+        ALREADY_READY,
+        NOT_ELIGIBLE,
+        NOT_FOUND
+    }
+
+    private record ReadyBatchAccumulator(
+            int markedReadyCount,
+            int alreadyReadyCount,
+            int notEligibleCount,
+            int notFoundCount,
+            List<String> failures
+    ) {
+
+        private static ReadyBatchAccumulator empty() {
+            return new ReadyBatchAccumulator(
+                    0,
+                    0,
+                    0,
+                    0,
+                    List.of()
+            );
+        }
+
+        private ReadyBatchAccumulator withMarkedReady() {
+            return new ReadyBatchAccumulator(
+                    markedReadyCount + 1,
+                    alreadyReadyCount,
+                    notEligibleCount,
+                    notFoundCount,
+                    failures
+            );
+        }
+
+        private ReadyBatchAccumulator withAlreadyReady() {
+            return new ReadyBatchAccumulator(
+                    markedReadyCount,
+                    alreadyReadyCount + 1,
+                    notEligibleCount,
+                    notFoundCount,
+                    failures
+            );
+        }
+
+        private ReadyBatchAccumulator withNotEligible() {
+            return new ReadyBatchAccumulator(
+                    markedReadyCount,
+                    alreadyReadyCount,
+                    notEligibleCount + 1,
+                    notFoundCount,
+                    failures
+            );
+        }
+
+        private ReadyBatchAccumulator withNotFound() {
+            return new ReadyBatchAccumulator(
+                    markedReadyCount,
+                    alreadyReadyCount,
+                    notEligibleCount,
+                    notFoundCount + 1,
+                    failures
+            );
+        }
+
+        private ReadyBatchAccumulator withFailure(
+                String failure
+        ) {
+            List<String> updatedFailures = new ArrayList<>(failures);
+            updatedFailures.add(failure);
+
+            return new ReadyBatchAccumulator(
+                    markedReadyCount,
+                    alreadyReadyCount,
+                    notEligibleCount,
+                    notFoundCount,
+                    List.copyOf(updatedFailures)
+            );
+        }
     }
 }

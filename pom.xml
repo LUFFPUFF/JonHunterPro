@@ -34,6 +34,8 @@
         <javafx.version>21.0.2</javafx.version>
         <controlsfx.version>11.2.1</controlsfx.version>
 
+        <jinjava.version>2.8.0</jinjava.version>
+
         <postgresql.version>42.7.11</postgresql.version>
         <okhttp.version>5.4.0</okhttp.version>
         <jsoup.version>1.22.2</jsoup.version>
@@ -87,6 +89,12 @@
                 <groupId>org.seleniumhq.selenium</groupId>
                 <artifactId>selenium-java</artifactId>
                 <version>${selenium.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.hubspot.jinjava</groupId>
+                <artifactId>jinjava</artifactId>
+                <version>${jinjava.version}</version>
             </dependency>
 
             <dependency>

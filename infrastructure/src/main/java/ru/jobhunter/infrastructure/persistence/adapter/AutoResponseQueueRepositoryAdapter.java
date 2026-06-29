@@ -8,6 +8,7 @@ import ru.jobhunter.infrastructure.persistence.entity.AutoResponseQueueItemEntit
 import ru.jobhunter.infrastructure.persistence.mapper.AutoResponseQueueItemPersistenceMapper;
 import ru.jobhunter.infrastructure.persistence.springdata.SpringDataAutoResponseQueueItemJpaRepository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -178,6 +179,89 @@ public class AutoResponseQueueRepositoryAdapter implements AutoResponseQueueRepo
             );
 
             return Optional.of(mapper.toDomain(savedEntity));
+        }, executorService);
+    }
+
+    @Override
+    public CompletableFuture<Optional<AutoResponseQueueItem>>
+    markCandidateApprovalRequired(
+            AutoResponseQueueItemId itemId,
+            UserId userId,
+            String approvalReason,
+            String diagnosticDirectory
+    ) {
+        Objects.requireNonNull(
+                itemId,
+                "Auto response queue item id must not be null"
+        );
+
+        Objects.requireNonNull(
+                userId,
+                "User id must not be null"
+        );
+
+        return CompletableFuture.supplyAsync(() -> {
+            Optional<AutoResponseQueueItemEntity> entity =
+                    jpaRepository.findByIdAndUserId(
+                            itemId.value(),
+                            userId.value()
+                    );
+
+            if (entity.isEmpty()) {
+                return Optional.empty();
+            }
+
+            AutoResponseQueueItem updatedItem =
+                    mapper.toDomain(entity.get())
+                            .withCandidateApprovalRequired(
+                                    approvalReason,
+                                    diagnosticDirectory
+                            );
+
+            AutoResponseQueueItemEntity savedEntity =
+                    jpaRepository.save(
+                            mapper.toEntity(updatedItem)
+                    );
+
+            return Optional.of(
+                    mapper.toDomain(savedEntity)
+            );
+        }, executorService);
+    }
+
+    @Override
+    public CompletableFuture<Optional<AutoResponseQueueItem>> claimReadyForExecution(
+            AutoResponseQueueItemId itemId,
+            UserId userId
+    ) {
+        Objects.requireNonNull(
+                itemId,
+                "Auto response queue item id must not be null"
+        );
+
+        Objects.requireNonNull(
+                userId,
+                "User id must not be null"
+        );
+
+        return CompletableFuture.supplyAsync(() -> {
+            int claimedCount = jpaRepository.claimReadyForExecution(
+                    itemId.value(),
+                    userId.value(),
+                    AutoResponseQueueStatus.READY.name(),
+                    AutoResponseQueueStatus.IN_PROGRESS.name(),
+                    Instant.now()
+            );
+
+            if (claimedCount == 0) {
+                return Optional.empty();
+            }
+
+            return jpaRepository.findByIdAndUserId(
+                            itemId.value(),
+                            userId.value()
+                    )
+                    .map(mapper::toDomain);
         }, executorService);
     }
 }
