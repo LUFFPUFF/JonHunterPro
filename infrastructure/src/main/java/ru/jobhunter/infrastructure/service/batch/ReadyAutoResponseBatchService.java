@@ -6,17 +6,18 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.jobhunter.core.application.dto.AutoResponseBatchProgressDto;
 import ru.jobhunter.core.application.dto.AutoResponseExecutionResultDto;
+import ru.jobhunter.core.application.dto.AutoResponseQueueItemDto;
 import ru.jobhunter.core.application.dto.ExecuteAutoResponseCommand;
 import ru.jobhunter.core.application.dto.StartReadyAutoResponsesBatchCommand;
 import ru.jobhunter.core.application.dto.StartReadyAutoResponsesBatchResultDto;
-import ru.jobhunter.core.application.dto.AutoResponseQueueItemDto;
+import ru.jobhunter.core.application.exception.AutoResponseQueueItemNotReadyException;
 import ru.jobhunter.core.application.usecase.autoresponse.ExecuteAutoResponseUseCase;
 import ru.jobhunter.core.application.usecase.autoresponse.GetAutoResponseBatchProgressUseCase;
 import ru.jobhunter.core.application.usecase.autoresponse.GetReadyAutoResponseQueueItemsUseCase;
 import ru.jobhunter.core.application.usecase.autoresponse.StartReadyAutoResponsesBatchUseCase;
 import ru.jobhunter.core.domain.model.AutoResponseQueueItemId;
 import ru.jobhunter.core.domain.model.UserId;
-import ru.jobhunter.core.application.exception.AutoResponseQueueItemNotReadyException;
+import ru.jobhunter.core.domain.model.VacancySource;
 
 import java.util.List;
 import java.util.Objects;
@@ -35,7 +36,8 @@ public final class ReadyAutoResponseBatchService implements
             ReadyAutoResponseBatchService.class
     );
 
-    private final GetReadyAutoResponseQueueItemsUseCase getReadyAutoResponseQueueItemsUseCase;
+    private final GetReadyAutoResponseQueueItemsUseCase
+            getReadyAutoResponseQueueItemsUseCase;
     private final ExecuteAutoResponseUseCase executeAutoResponseUseCase;
     private final AutoResponseBatchProgressStore progressStore;
     private final Executor batchExecutor;
@@ -53,17 +55,14 @@ public final class ReadyAutoResponseBatchService implements
                         getReadyAutoResponseQueueItemsUseCase,
                         "Get ready queue items use case must not be null"
                 );
-
         this.executeAutoResponseUseCase = Objects.requireNonNull(
                 executeAutoResponseUseCase,
                 "Execute auto response use case must not be null"
         );
-
         this.progressStore = Objects.requireNonNull(
                 progressStore,
                 "Batch progress store must not be null"
         );
-
         this.batchExecutor = Objects.requireNonNull(
                 batchExecutor,
                 "Batch executor must not be null"
@@ -82,10 +81,7 @@ public final class ReadyAutoResponseBatchService implements
         return getReadyAutoResponseQueueItemsUseCase
                 .getReadyItems(command.userId())
                 .thenApply(readyItems ->
-                        startForReadyItems(
-                                command.userId(),
-                                readyItems
-                        )
+                        startForReadyItems(command.userId(), readyItems)
                 );
     }
 
@@ -105,10 +101,7 @@ public final class ReadyAutoResponseBatchService implements
         }
 
         AutoResponseBatchProgressStore.BatchRegistration registration =
-                progressStore.tryStart(
-                        userId,
-                        readyItems.size()
-                );
+                progressStore.tryStart(userId, readyItems.size());
 
         if (!registration.started()) {
             return StartReadyAutoResponsesBatchResultDto.alreadyRunning(
@@ -120,13 +113,11 @@ public final class ReadyAutoResponseBatchService implements
         UUID batchId = registration.progress().batchId();
 
         try {
-            batchExecutor.execute(() ->
-                    executeBatch(
-                            batchId,
-                            userId,
-                            List.copyOf(readyItems)
-                    )
-            );
+            batchExecutor.execute(() -> executeBatch(
+                    batchId,
+                    userId,
+                    List.copyOf(readyItems)
+            ));
         } catch (RuntimeException exception) {
             progressStore.markWorkerFailure(batchId);
             progressStore.complete(batchId);
@@ -168,13 +159,31 @@ public final class ReadyAutoResponseBatchService implements
     ) {
         progressStore.markRunning(batchId);
 
+        boolean habrStreamPaused = false;
+
         try {
             for (AutoResponseQueueItemDto item : readyItems) {
-                executeSingleItem(
+                if (habrStreamPaused
+                        && item.source() == VacancySource.HABR_CAREER) {
+                    progressStore.recordSkipped(batchId);
+
+                    log.info(
+                            "Habr Career batch item skipped after safety pause: "
+                                    + "batchId={}, itemId={}, externalVacancyId={}",
+                            batchId,
+                            item.id(),
+                            item.externalVacancyId()
+                    );
+                    continue;
+                }
+
+                boolean pauseHabrAfterItem = executeSingleItem(
                         batchId,
                         userId,
                         item
                 );
+
+                habrStreamPaused = habrStreamPaused || pauseHabrAfterItem;
             }
         } catch (RuntimeException exception) {
             progressStore.markWorkerFailure(batchId);
@@ -199,7 +208,7 @@ public final class ReadyAutoResponseBatchService implements
         }
     }
 
-    private void executeSingleItem(
+    private boolean executeSingleItem(
             UUID batchId,
             UserId userId,
             AutoResponseQueueItemDto item
@@ -211,16 +220,34 @@ public final class ReadyAutoResponseBatchService implements
                     executeAutoResponseUseCase.execute(
                             new ExecuteAutoResponseCommand(
                                     userId,
-                                    AutoResponseQueueItemId.of(
-                                            item.id()
-                                    )
+                                    AutoResponseQueueItemId.of(item.id())
                             )
                     ).join();
 
-            recordExecutionResult(
-                    batchId,
-                    result
-            );
+            recordExecutionResult(batchId, result);
+
+            boolean pauseHabrStream = HabrCareerBatchContinuationPolicy
+                    .shouldPauseHabrStream(item, result);
+
+            if (pauseHabrStream) {
+                String pauseReason = HabrCareerBatchContinuationPolicy
+                        .pauseReason(result);
+
+                progressStore.recordHabrStreamPaused(
+                        batchId,
+                        pauseReason
+                );
+
+                log.warn(
+                        "Habr Career batch stream paused after "
+                                + "non-confirmed result: batchId={}, itemId={}, "
+                                + "externalVacancyId={}, status={}",
+                        batchId,
+                        item.id(),
+                        item.externalVacancyId(),
+                        result.status()
+                );
+            }
 
             log.info(
                     "Auto response batch item completed: "
@@ -231,6 +258,8 @@ public final class ReadyAutoResponseBatchService implements
                     item.externalVacancyId(),
                     result.status()
             );
+
+            return pauseHabrStream;
         } catch (CompletionException exception) {
             Throwable cause = rootCause(exception);
 
@@ -238,18 +267,26 @@ public final class ReadyAutoResponseBatchService implements
                 progressStore.recordSkipped(batchId);
 
                 log.info(
-                        "Auto response batch item skipped because "
-                                + "it is no longer READY: "
-                                + "batchId={}, itemId={}, externalVacancyId={}",
+                        "Auto response batch item skipped because it is no "
+                                + "longer READY: batchId={}, itemId={}, "
+                                + "externalVacancyId={}",
                         batchId,
                         item.id(),
                         item.externalVacancyId()
                 );
 
-                return;
+                return false;
             }
 
             progressStore.recordFailed(batchId);
+
+            if (item.source() == VacancySource.HABR_CAREER) {
+                progressStore.recordHabrStreamPaused(
+                        batchId,
+                        HabrCareerBatchContinuationPolicy
+                                .pauseReasonAfterUnexpectedFailure()
+                );
+            }
 
             log.warn(
                     "Auto response batch item failed: "
@@ -259,15 +296,24 @@ public final class ReadyAutoResponseBatchService implements
                     item.externalVacancyId(),
                     cause
             );
+
+            return item.source() == VacancySource.HABR_CAREER;
         }
     }
 
-    private void recordExecutionResult(UUID batchId, AutoResponseExecutionResultDto result) {
+    private void recordExecutionResult(
+            UUID batchId,
+            AutoResponseExecutionResultDto result
+    ) {
         switch (result.status()) {
             case SUCCESS, ALREADY_RESPONDED -> progressStore.recordSent(batchId);
             case PARTIAL_SUCCESS -> progressStore.recordPartialSuccess(batchId);
-            case CANDIDATE_APPROVAL_REQUIRED -> progressStore.recordCandidateApprovalRequired(batchId);
-            case NOT_AVAILABLE, PREFLIGHT_COMPLETED, QUESTIONNAIRE_REQUIRED, QUESTIONNAIRE_FILLED_REVIEW_REQUIRED ->
+            case CANDIDATE_APPROVAL_REQUIRED ->
+                    progressStore.recordCandidateApprovalRequired(batchId);
+            case NOT_AVAILABLE,
+                 PREFLIGHT_COMPLETED,
+                 QUESTIONNAIRE_REQUIRED,
+                 QUESTIONNAIRE_FILLED_REVIEW_REQUIRED ->
                     progressStore.recordReturnedToReady(batchId);
             case FAILED -> progressStore.recordFailed(batchId);
         }

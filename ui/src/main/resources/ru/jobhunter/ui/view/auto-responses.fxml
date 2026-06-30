@@ -136,7 +136,8 @@
                             </VBox>
 
                             <VBox spacing="6">
-                                <Label text="Регион HH area id"
+                                <Label fx:id="areaLabel"
+                                       text="Регион HH area id"
                                        style="-fx-font-size: 12px; -fx-text-fill: #4B5563;"/>
                                 <TextField fx:id="areaTextField"
                                            promptText="113"
@@ -149,6 +150,14 @@
                                     prefWidth="110"
                                     style="-fx-background-color: #2563EB; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 8;"/>
                         </HBox>
+
+                        <Label fx:id="habrSearchNoticeLabel"
+                               text=""
+                               visible="false"
+                               managed="false"
+                               wrapText="true"
+                               maxWidth="780"
+                               style="-fx-font-size: 12px; -fx-text-fill: #92400E; -fx-background-color: #FFFBEB; -fx-background-radius: 8; -fx-border-color: #FDE68A; -fx-border-radius: 8; -fx-padding: 10;"/>
 
                         <HBox spacing="12" alignment="CENTER_LEFT">
                             <Label fx:id="searchStatusLabel"
@@ -240,23 +249,45 @@
                                     onAction="#onShowReadyQueueClicked"
                                     style="-fx-background-color: #F3F4F6; -fx-background-radius: 8;"/>
 
+                            <CheckBox fx:id="showSentQueueItemsCheckBox"
+                                      text="Показывать отправленные"
+                                      onAction="#onShowSentQueueItemsChanged"/>
+
+                            <Label text="Платформа:"
+                                   style="-fx-font-weight: bold; -fx-text-fill: #374151;"/>
+
+                            <ComboBox fx:id="queueSourceFilterComboBox"
+                                      prefWidth="150"
+                                      style="-fx-background-radius: 8;"/>
+
                             <Button fx:id="startReadyAutoResponsesBatchButton"
                                     text="Запустить все готовые"
                                     onAction="#onStartReadyAutoResponsesBatchClicked"
                                     style="-fx-background-color: #2563EB; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 8;"/>
                         </HBox>
 
+                        <Label text="Habr Career в массовом запуске выполняется последовательно. После любого неподтверждённого результата оставшиеся Habr-вакансии будут оставлены в READY, а HH.ru продолжит обработку."
+                               wrapText="true"
+                               maxWidth="780"
+                               style="-fx-font-size: 12px; -fx-text-fill: #92400E; -fx-background-color: #FFFBEB; -fx-background-radius: 8; -fx-padding: 8;"/>
+
                         <HBox spacing="12" alignment="CENTER_LEFT">
                             <CheckBox fx:id="selectAllQueuedQueueItemsCheckBox"
-                                      text="Выбрать все вакансии в очереди"/>
+                                      text="Выбрать все доступные вакансии"/>
 
                             <Label fx:id="selectedQueuedQueueItemCountLabel"
                                    text="Выбрано: 0"
                                    style="-fx-font-weight: bold; -fx-text-fill: #374151;"/>
 
                             <Button fx:id="markSelectedQueueItemsReadyButton"
-                                    text="Пометить выбранные готовыми"
+                                    text="Пометить выбранные в очереди готовыми"
                                     onAction="#onMarkSelectedQueueItemsReadyClicked"
+                                    disable="true"
+                                    style="-fx-background-color: #F3F4F6; -fx-background-radius: 8;"/>
+
+                            <Button fx:id="returnSelectedQueueItemsToQueuedButton"
+                                    text="Вернуть выбранные готовые в очередь"
+                                    onAction="#onReturnSelectedQueueItemsToQueuedClicked"
                                     disable="true"
                                     style="-fx-background-color: #F3F4F6; -fx-background-radius: 8;"/>
                         </HBox>
@@ -301,7 +332,7 @@
 
                         <HBox spacing="10" alignment="CENTER_LEFT">
                             <Button fx:id="copyQueueVacancyIdButton"
-                                    text="Копировать ID HH"
+                                    text="Копировать ID вакансии"
                                     onAction="#onCopyQueueVacancyIdClicked"
                                     disable="true"
                                     style="-fx-background-color: #F9FAFB; -fx-background-radius: 8;"/>

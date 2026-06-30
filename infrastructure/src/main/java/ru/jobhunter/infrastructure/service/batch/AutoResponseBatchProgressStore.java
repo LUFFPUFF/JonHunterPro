@@ -86,9 +86,7 @@ public final class AutoResponseBatchProgressStore {
         }
     }
 
-    void recordSent(
-            UUID batchId
-    ) {
+    void recordSent(UUID batchId) {
         synchronized (monitor) {
             findBatch(batchId).recordSent();
         }
@@ -123,6 +121,15 @@ public final class AutoResponseBatchProgressStore {
     ) {
         synchronized (monitor) {
             findBatch(batchId).recordSkipped();
+        }
+    }
+
+    void recordHabrStreamPaused(
+            UUID batchId,
+            String reason
+    ) {
+        synchronized (monitor) {
+            findBatch(batchId).recordHabrStreamPaused(reason);
         }
     }
 
@@ -211,6 +218,7 @@ public final class AutoResponseBatchProgressStore {
         private int returnedToReadyCount;
         private int failedCount;
         private int skippedCount;
+        private String habrStreamPauseReason;
 
         private Instant finishedAt;
 
@@ -244,7 +252,9 @@ public final class AutoResponseBatchProgressStore {
             sentCount++;
         }
 
-        private void recordPartialSuccess() { partialSuccessCount++; }
+        private void recordPartialSuccess() {
+            partialSuccessCount++;
+        }
 
         private void recordCandidateApprovalRequired() {
             candidateApprovalRequiredCount++;
@@ -262,8 +272,23 @@ public final class AutoResponseBatchProgressStore {
             skippedCount++;
         }
 
+        private void recordHabrStreamPaused(
+                String reason
+        ) {
+            if (habrStreamPauseReason == null
+                    && reason != null
+                    && !reason.isBlank()) {
+                habrStreamPauseReason = reason.trim();
+            }
+        }
+
         private void complete() {
-            boolean hasIssues = partialSuccessCount > 0 || candidateApprovalRequiredCount > 0 || returnedToReadyCount > 0 || failedCount > 0 || skippedCount > 0;
+            boolean hasIssues = partialSuccessCount > 0
+                    || candidateApprovalRequiredCount > 0
+                    || returnedToReadyCount > 0
+                    || failedCount > 0
+                    || skippedCount > 0
+                    || habrStreamPauseReason != null;
 
             status = hasIssues
                     ? AutoResponseBatchProgressStatus.COMPLETED_WITH_ISSUES
@@ -285,6 +310,7 @@ public final class AutoResponseBatchProgressStore {
                     returnedToReadyCount,
                     failedCount,
                     skippedCount,
+                    habrStreamPauseReason,
                     startedAt,
                     finishedAt
             );

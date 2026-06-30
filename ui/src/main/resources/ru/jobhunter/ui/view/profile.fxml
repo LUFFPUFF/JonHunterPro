@@ -265,6 +265,84 @@
                 </HBox>
 
                 <HBox spacing="12" alignment="CENTER_LEFT">
+                    <Button fx:id="probeHabrCareerBrowserSessionButton"
+                            text="Проверить браузер Habr Career"
+                            onAction="#onProbeHabrCareerBrowserSessionClicked"/>
+
+                    <Label fx:id="habrCareerBrowserSessionStatusLabel"
+                           text="Браузер Habr Career не проверялся"
+                           wrapText="true"
+                           maxWidth="420"/>
+                </HBox>
+
+                <HBox spacing="12" alignment="CENTER_LEFT">
+                    <Button fx:id="probeHabrCareerVacancyPageButton"
+                            text="Проверить вакансии Habr Career"
+                            onAction="#onProbeHabrCareerVacancyPageClicked"/>
+
+                    <Label fx:id="habrCareerVacancyPageStatusLabel"
+                           text="Страница вакансий Habr Career не проверялась"
+                           wrapText="true"
+                           maxWidth="420"/>
+                </HBox>
+
+                <VBox spacing="6">
+                    <HBox spacing="12" alignment="CENTER_LEFT">
+                        <TextField fx:id="habrCareerVacancyIdField"
+                                   prefWidth="150"
+                                   promptText="ID вакансии"/>
+
+                        <Button fx:id="probeHabrCareerVacancyDetailsButton"
+                                text="Проверить детали вакансии Habr Career"
+                                onAction="#onProbeHabrCareerVacancyDetailsClicked"/>
+                    </HBox>
+
+                    <Label fx:id="habrCareerVacancyDetailsStatusLabel"
+                           text="Детали вакансии Habr Career не проверялись"
+                           wrapText="true"
+                           maxWidth="620"/>
+                </VBox>
+
+                <VBox spacing="6">
+                    <HBox spacing="12" alignment="CENTER_LEFT">
+                        <Button fx:id="probeHabrCareerResponseFormButton"
+                                text="Безопасно проверить действие отклика Habr Career"
+                                onAction="#onProbeHabrCareerResponseFormClicked"/>
+                    </HBox>
+
+                    <Label fx:id="habrCareerResponseFormStatusLabel"
+                           text="Действие отклика Habr Career не проверялось"
+                           wrapText="true"
+                           maxWidth="620"/>
+                </VBox>
+
+                <VBox spacing="6">
+                    <HBox spacing="12" alignment="CENTER_LEFT">
+                        <Button fx:id="probeHabrCareerPostResponseFormButton"
+                                text="Проверить post-response форму Habr Career"
+                                onAction="#onProbeHabrCareerPostResponseFormClicked"/>
+                    </HBox>
+
+                    <Label fx:id="habrCareerPostResponseFormStatusLabel"
+                           text="Post-response форма Habr Career не проверялась"
+                           wrapText="true"
+                           maxWidth="620"/>
+                </VBox>
+
+                <VBox spacing="6">
+                    <HBox spacing="12" alignment="CENTER_LEFT">
+                        <Button fx:id="probeHabrCareerResponseEditFormButton"
+                                text="Проверить форму редактирования отклика Habr Career"
+                                onAction="#onProbeHabrCareerResponseEditFormClicked"/>
+                    </HBox>
+
+                    <Label fx:id="habrCareerResponseEditFormStatusLabel"
+                           text="Форма редактирования отклика Habr Career не проверялась"
+                           wrapText="true"
+                           maxWidth="620"/>
+                </VBox>
+
+                <HBox spacing="12" alignment="CENTER_LEFT">
                     <Button fx:id="checkHhApiButton"
                             text="Проверить HH.ru API"
                             onAction="#onCheckHhApiClicked"/>

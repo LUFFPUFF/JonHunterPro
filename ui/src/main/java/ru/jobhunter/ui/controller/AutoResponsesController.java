@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import ru.jobhunter.core.application.dto.*;
 import ru.jobhunter.core.application.usecase.autoresponse.*;
+import ru.jobhunter.core.application.usecase.integration.SearchHabrCareerVacanciesUseCase;
 import ru.jobhunter.core.application.usecase.integration.SearchHhVacanciesUseCase;
 import ru.jobhunter.core.application.usecase.resume.GetPrimaryResumeUseCase;
 import ru.jobhunter.core.application.usecase.resume.UploadPrimaryResumePdfUseCase;
@@ -53,6 +54,8 @@ public final class AutoResponsesController {
     private static final Logger log = LoggerFactory.getLogger(AutoResponsesController.class);
 
     private static final String PLATFORM_HH = "HH.ru";
+    private static final String PLATFORM_HABR_CAREER = "Habr Career";
+    private static final String QUEUE_SOURCE_FILTER_ALL = "Все платформы";
     private static final int DEFAULT_SEARCH_PAGE_SIZE = 20;
 
     private static final DateTimeFormatter QUEUE_DATE_FORMATTER =
@@ -60,6 +63,8 @@ public final class AutoResponsesController {
                     .withZone(ZoneId.systemDefault());
 
     private final SearchHhVacanciesUseCase searchHhVacanciesUseCase;
+    private final SearchHabrCareerVacanciesUseCase
+            searchHabrCareerVacanciesUseCase;
     private final CurrentUserSession currentUserSession;
     private final AddVacancyToAutoResponseQueueUseCase addVacancyToAutoResponseQueueUseCase;
     private final AddVacanciesToAutoResponseQueueUseCase addVacanciesToAutoResponseQueueUseCase;
@@ -72,6 +77,8 @@ public final class AutoResponsesController {
     private final RemoveAutoResponseQueueItemUseCase removeAutoResponseQueueItemUseCase;
     private final UpdateAutoResponseQueueItemStatusUseCase updateAutoResponseQueueItemStatusUseCase;
     private final MarkAutoResponseQueueItemsReadyUseCase markAutoResponseQueueItemsReadyUseCase;
+    private final ReturnAutoResponseQueueItemsToQueuedUseCase
+            returnAutoResponseQueueItemsToQueuedUseCase;
     private final GetPrimaryResumeUseCase getPrimaryResumeUseCase;
     private final UploadPrimaryResumePdfUseCase uploadPrimaryResumePdfUseCase;
     private final StartReadyAutoResponsesBatchUseCase startReadyAutoResponsesBatchUseCase;
@@ -80,14 +87,20 @@ public final class AutoResponsesController {
     private String activeSearchArea;
     private int currentSearchPage;
     private int currentSearchPerPage = DEFAULT_SEARCH_PAGE_SIZE;
-    private HhVacancySearchResultDto lastSearchResult;
+    private HhVacancySearchResultDto lastHhSearchResult;
+    private HabrCareerVacancyFullSearchResultDto lastHabrCareerFullSearchResult;
+    private String activeHabrSearchText;
+    private String activeHabrCity;
     private boolean searchLoading;
-    private final Set<String> selectedVacancyExternalIds = new LinkedHashSet<>();
+    private final Set<String> selectedVacancyKeys = new LinkedHashSet<>();
+    private String savedHhArea = "113";
     private boolean updatingSelectAllVacancies;
     private boolean queueAdditionLoading;
-    private final Set<UUID> selectedQueuedQueueItemIds = new LinkedHashSet<>();
+    private List<AutoResponseQueueItemDto> loadedQueueItems = List.of();
+    private boolean readyQueueOnlyView;
+    private final Set<UUID> selectedQueueItemIds = new LinkedHashSet<>();
     private boolean updatingSelectAllQueuedQueueItems;
-    private boolean queueReadyBatchLoading;
+    private boolean queueBulkStatusUpdateLoading;
     private boolean generalCoverLetterLoading;
     private boolean replacingGeneralCoverLetterContent;
 
@@ -132,6 +145,9 @@ public final class AutoResponsesController {
     private TextField searchTextField;
 
     @FXML
+    private Label areaLabel;
+
+    @FXML
     private TextField areaTextField;
 
     @FXML
@@ -159,10 +175,13 @@ public final class AutoResponsesController {
     private Label searchStatusLabel;
 
     @FXML
+    private Label habrSearchNoticeLabel;
+
+    @FXML
     private Label resultCountLabel;
 
     @FXML
-    private ListView<HhVacancyDto> vacanciesListView;
+    private ListView<SearchVacancyItem> vacanciesListView;
 
     @FXML
     private CheckBox selectAllVacanciesCheckBox;
@@ -195,7 +214,16 @@ public final class AutoResponsesController {
     private Label selectedQueuedQueueItemCountLabel;
 
     @FXML
+    private CheckBox showSentQueueItemsCheckBox;
+
+    @FXML
+    private ComboBox<String> queueSourceFilterComboBox;
+
+    @FXML
     private Button markSelectedQueueItemsReadyButton;
+
+    @FXML
+    private Button returnSelectedQueueItemsToQueuedButton;
 
     @FXML
     private Button executeAutoResponseButton;
@@ -223,6 +251,8 @@ public final class AutoResponsesController {
 
     public AutoResponsesController(
             SearchHhVacanciesUseCase searchHhVacanciesUseCase,
+            SearchHabrCareerVacanciesUseCase
+                    searchHabrCareerVacanciesUseCase,
             CurrentUserSession currentUserSession,
             AddVacancyToAutoResponseQueueUseCase addVacancyToAutoResponseQueueUseCase,
             AddVacanciesToAutoResponseQueueUseCase addVacanciesToAutoResponseQueueUseCase,
@@ -234,6 +264,8 @@ public final class AutoResponsesController {
             RemoveAutoResponseQueueItemUseCase removeAutoResponseQueueItemUseCase,
             UpdateAutoResponseQueueItemStatusUseCase updateAutoResponseQueueItemStatusUseCase,
             MarkAutoResponseQueueItemsReadyUseCase markAutoResponseQueueItemsReadyUseCase,
+            ReturnAutoResponseQueueItemsToQueuedUseCase
+                    returnAutoResponseQueueItemsToQueuedUseCase,
             GetPrimaryResumeUseCase getPrimaryResumeUseCase,
             UploadPrimaryResumePdfUseCase uploadPrimaryResumePdfUseCase,
             GetGeneralCoverLetterSettingsUseCase getGeneralCoverLetterSettingsUseCase,
@@ -242,6 +274,10 @@ public final class AutoResponsesController {
         this.searchHhVacanciesUseCase = Objects.requireNonNull(
                 searchHhVacanciesUseCase,
                 "Search HH vacancies use case must not be null"
+        );
+        this.searchHabrCareerVacanciesUseCase = Objects.requireNonNull(
+                searchHabrCareerVacanciesUseCase,
+                "Search Habr Career vacancies use case must not be null"
         );
         this.currentUserSession = Objects.requireNonNull(
                 currentUserSession,
@@ -271,6 +307,12 @@ public final class AutoResponsesController {
                 Objects.requireNonNull(
                         markAutoResponseQueueItemsReadyUseCase,
                         "Mark auto response queue items ready use case "
+                                + "must not be null"
+                );
+        this.returnAutoResponseQueueItemsToQueuedUseCase =
+                Objects.requireNonNull(
+                        returnAutoResponseQueueItemsToQueuedUseCase,
+                        "Return auto response queue items to queued use case "
                                 + "must not be null"
                 );
         this.getReadyAutoResponseQueueItemsUseCase = Objects.requireNonNull(
@@ -316,10 +358,22 @@ public final class AutoResponsesController {
 
     @FXML
     public void initialize() {
-        platformComboBox.getItems().setAll(PLATFORM_HH);
+        platformComboBox.getItems().setAll(
+                PLATFORM_HH,
+                PLATFORM_HABR_CAREER
+        );
         platformComboBox.getSelectionModel().select(PLATFORM_HH);
 
-        pageSizeComboBox.getItems().setAll(20, 50, 100);
+        platformComboBox.getSelectionModel()
+                .selectedItemProperty()
+                .addListener((observable, previousPlatform, platform) ->
+                        onSearchPlatformChanged(
+                                previousPlatform,
+                                platform
+                        )
+                );
+
+        pageSizeComboBox.getItems().setAll(20, 25, 50, 100);
         pageSizeComboBox.getSelectionModel()
                 .select(Integer.valueOf(DEFAULT_SEARCH_PAGE_SIZE));
 
@@ -330,7 +384,9 @@ public final class AutoResponsesController {
                     }
                 });
 
-        areaTextField.setText("113");
+        areaTextField.setText(savedHhArea);
+        updatePlatformSpecificSearchControls();
+        updateHabrSearchNotice();
 
         vacanciesListView.setCellFactory(
                 listView -> new VacancySelectionListCell()
@@ -339,6 +395,20 @@ public final class AutoResponsesController {
         queueListView.setCellFactory(
                 listView -> new QueueSelectionListCell()
         );
+
+        queueSourceFilterComboBox.getItems().setAll(
+                QUEUE_SOURCE_FILTER_ALL,
+                PLATFORM_HH,
+                PLATFORM_HABR_CAREER
+        );
+        queueSourceFilterComboBox.getSelectionModel().select(
+                QUEUE_SOURCE_FILTER_ALL
+        );
+        queueSourceFilterComboBox.getSelectionModel()
+                .selectedItemProperty()
+                .addListener((observable, previousFilter, currentFilter) ->
+                        applyQueueFilters()
+                );
 
         queueListView.getSelectionModel()
                 .selectedItemProperty()
@@ -355,7 +425,7 @@ public final class AutoResponsesController {
         selectAllQueuedQueueItemsCheckBox.selectedProperty()
                 .addListener((observable, oldValue, selected) -> {
                     if (!updatingSelectAllQueuedQueueItems) {
-                        setCurrentQueueItemsSelectedForReady(selected);
+                        setCurrentQueueItemsSelectedForBulkAction(selected);
                     }
                 });
 
@@ -395,6 +465,11 @@ public final class AutoResponsesController {
     @FXML
     private void onShowReadyQueueClicked() {
         loadReadyQueue();
+    }
+
+    @FXML
+    private void onShowSentQueueItemsChanged() {
+        applyQueueFilters();
     }
 
     @FXML
@@ -479,7 +554,9 @@ public final class AutoResponsesController {
         }
 
         List<AutoResponseQueueItemDto> selectedItems =
-                getSelectedQueuedQueueItems();
+                getSelectedQueueItemsByStatus(
+                        AutoResponseQueueStatus.QUEUED
+                );
 
         if (selectedItems.isEmpty()) {
             setQueueStatus(
@@ -500,7 +577,7 @@ public final class AutoResponsesController {
                         itemIds
                 );
 
-        setQueueReadyBatchLoading(true);
+        setQueueBulkStatusUpdateLoading(true);
 
         setQueueStatus(
                 "Помечаем готовыми вакансии: "
@@ -511,7 +588,7 @@ public final class AutoResponsesController {
         markAutoResponseQueueItemsReadyUseCase.markReady(command)
                 .whenComplete((result, throwable) ->
                         Platform.runLater(() -> {
-                            setQueueReadyBatchLoading(false);
+                            setQueueBulkStatusUpdateLoading(false);
 
                             if (throwable != null) {
                                 setQueueStatus(
@@ -533,6 +610,72 @@ public final class AutoResponsesController {
     @FXML
     private void onReturnQueueItemToQueuedClicked() {
         updateSelectedQueueItemStatus(AutoResponseQueueStatus.QUEUED);
+    }
+
+    @FXML
+    private void onReturnSelectedQueueItemsToQueuedClicked() {
+        AuthenticatedUserDto currentUser = currentUserSession
+                .getCurrentUser()
+                .orElse(null);
+
+        if (currentUser == null) {
+            setQueueStatus("Сначала войдите в аккаунт JobHunterPro.");
+            return;
+        }
+
+        List<AutoResponseQueueItemDto> selectedItems =
+                getSelectedQueueItemsByStatus(
+                        AutoResponseQueueStatus.READY
+                );
+
+        if (selectedItems.isEmpty()) {
+            setQueueStatus(
+                    "Отметьте хотя бы одну вакансию "
+                            + "со статусом «Готова к отклику»."
+            );
+            return;
+        }
+
+        List<AutoResponseQueueItemId> itemIds = selectedItems.stream()
+                .map(AutoResponseQueueItemDto::id)
+                .map(AutoResponseQueueItemId::of)
+                .toList();
+
+        ReturnAutoResponseQueueItemsToQueuedCommand command =
+                new ReturnAutoResponseQueueItemsToQueuedCommand(
+                        UserId.of(currentUser.id()),
+                        itemIds
+                );
+
+        setQueueBulkStatusUpdateLoading(true);
+
+        setQueueStatus(
+                "Возвращаем в очередь вакансии: "
+                        + selectedItems.size()
+                        + "..."
+        );
+
+        returnAutoResponseQueueItemsToQueuedUseCase.returnToQueued(command)
+                .whenComplete((result, throwable) ->
+                        Platform.runLater(() -> {
+                            setQueueBulkStatusUpdateLoading(false);
+
+                            if (throwable != null) {
+                                setQueueStatus(
+                                        "Не удалось массово вернуть вакансии "
+                                                + "в очередь: "
+                                                + rootMessage(throwable)
+                                );
+                                return;
+                            }
+
+                            setQueueStatus(
+                                    formatBatchReturnToQueuedResult(result)
+                            );
+
+                            loadQueue();
+                        })
+                );
     }
 
     @FXML
@@ -744,65 +887,72 @@ public final class AutoResponsesController {
 
     @FXML
     private void onSearchClicked() {
-        String platform = platformComboBox.getSelectionModel()
-                .getSelectedItem();
-
-        if (!PLATFORM_HH.equals(platform)) {
-            setStatus("Сейчас поддерживается только поиск через HH.ru.");
-            return;
-        }
-
+        String platform = selectedPlatform();
         String text = normalize(searchTextField.getText());
         String area = normalize(areaTextField.getText());
 
-        if (text == null) {
-            setStatus("Введите ключевые слова для поиска вакансий.");
+        if (PLATFORM_HH.equals(platform)) {
+            if (text == null) {
+                setStatus("Введите ключевые слова для поиска вакансий HH.ru.");
+                return;
+            }
+
+            loadHhSearchPage(
+                    text,
+                    area,
+                    0,
+                    selectedPageSize()
+            );
             return;
         }
 
-        loadSearchPage(
-                text,
-                area,
-                0,
-                selectedPageSize()
-        );
+        if (PLATFORM_HABR_CAREER.equals(platform)) {
+            loadAllHabrCareerVacancies(text, area);
+            return;
+        }
+
+        setStatus("Выберите поддерживаемую платформу поиска.");
     }
 
     @FXML
     private void onPreviousPageClicked() {
-        if (lastSearchResult == null
-                || !lastSearchResult.hasPreviousPage()
+        if (!PLATFORM_HH.equals(selectedPlatform())
+                || lastHhSearchResult == null
+                || !lastHhSearchResult.hasPreviousPage()
                 || activeSearchText == null) {
             return;
         }
 
-        loadSearchPage(
+        loadHhSearchPage(
                 activeSearchText,
                 activeSearchArea,
-                lastSearchResult.page() - 1,
+                lastHhSearchResult.page() - 1,
                 currentSearchPerPage
         );
     }
 
     @FXML
     private void onNextPageClicked() {
-        if (lastSearchResult == null
-                || !lastSearchResult.hasNextPage()
+        if (!PLATFORM_HH.equals(selectedPlatform())
+                || lastHhSearchResult == null
+                || !lastHhSearchResult.hasNextPage()
                 || activeSearchText == null) {
             return;
         }
 
-        loadSearchPage(
+        loadHhSearchPage(
                 activeSearchText,
                 activeSearchArea,
-                lastSearchResult.page() + 1,
+                lastHhSearchResult.page() + 1,
                 currentSearchPerPage
         );
     }
 
     @FXML
     private void onPageSizeChanged() {
-        if (searchLoading || activeSearchText == null) {
+        if (!PLATFORM_HH.equals(selectedPlatform())
+                || searchLoading
+                || activeSearchText == null) {
             return;
         }
 
@@ -812,7 +962,7 @@ public final class AutoResponsesController {
             return;
         }
 
-        loadSearchPage(
+        loadHhSearchPage(
                 activeSearchText,
                 activeSearchArea,
                 0,
@@ -822,7 +972,7 @@ public final class AutoResponsesController {
 
     @FXML
     private void onOpenVacancyClicked() {
-        HhVacancyDto vacancy = vacanciesListView.getSelectionModel()
+        SearchVacancyItem vacancy = vacanciesListView.getSelectionModel()
                 .getSelectedItem();
 
         if (vacancy == null) {
@@ -830,17 +980,12 @@ public final class AutoResponsesController {
             return;
         }
 
-        String url = firstNonBlank(
-                vacancy.alternateUrl(),
-                vacancy.url()
-        );
-
-        if (url == null) {
+        if (vacancy.vacancyUrl() == null || vacancy.vacancyUrl().isBlank()) {
             setStatus("У выбранной вакансии нет ссылки для открытия.");
             return;
         }
 
-        openBrowser(url);
+        openBrowser(vacancy.vacancyUrl());
     }
 
     @FXML
@@ -857,11 +1002,10 @@ public final class AutoResponsesController {
         ClipboardContent content = new ClipboardContent();
         content.putString(item.externalVacancyId());
 
-        Clipboard.getSystemClipboard()
-                .setContent(content);
+        Clipboard.getSystemClipboard().setContent(content);
 
         setQueueStatus(
-                "ID HH скопирован: "
+                "ID " + formatSourceName(item.source()) + " скопирован: "
                         + item.externalVacancyId()
         );
     }
@@ -877,11 +1021,19 @@ public final class AutoResponsesController {
             return;
         }
 
-        String vacancyUrl = firstNonBlank(
-                item.vacancyUrl(),
-                "https://hh.ru/vacancy/"
-                        + item.externalVacancyId()
-        );
+        String vacancyUrl = normalize(item.vacancyUrl());
+
+        if (vacancyUrl == null && item.source() == VacancySource.HH_RU) {
+            vacancyUrl = "https://hh.ru/vacancy/" + item.externalVacancyId();
+        }
+
+        if (vacancyUrl == null) {
+            setQueueStatus(
+                    "У вакансии " + formatSourceName(item.source())
+                            + " нет ссылки для открытия."
+            );
+            return;
+        }
 
         openQueueBrowser(vacancyUrl);
     }
@@ -997,7 +1149,7 @@ public final class AutoResponsesController {
             return;
         }
 
-        List<HhVacancyDto> selectedVacancies =
+        List<SearchVacancyItem> selectedVacancies =
                 getSelectedCurrentPageVacancies();
 
         if (selectedVacancies.isEmpty()) {
@@ -1012,13 +1164,8 @@ public final class AutoResponsesController {
                 new ArrayList<>(selectedVacancies.size());
 
         try {
-            for (HhVacancyDto vacancy : selectedVacancies) {
-                commands.add(
-                        toQueueCommand(
-                                currentUser,
-                                vacancy
-                        )
-                );
+            for (SearchVacancyItem vacancy : selectedVacancies) {
+                commands.add(toQueueCommand(currentUser, vacancy));
             }
 
             AddVacanciesToAutoResponseQueueCommand command =
@@ -1050,10 +1197,7 @@ public final class AutoResponsesController {
 
                                 retainOnlyFailedVacancySelections(result);
 
-                                setStatus(
-                                        formatBatchQueueAdditionResult(result)
-                                );
-
+                                setStatus(formatBatchQueueAdditionResult(result));
                                 loadQueue();
                             })
                     );
@@ -1065,7 +1209,7 @@ public final class AutoResponsesController {
         }
     }
 
-    private List<HhVacancyDto> getSelectedCurrentPageVacancies() {
+    private List<SearchVacancyItem> getSelectedCurrentPageVacancies() {
         return vacanciesListView.getItems()
                 .stream()
                 .filter(this::isVacancySelected)
@@ -1074,21 +1218,16 @@ public final class AutoResponsesController {
 
     private AddVacancyToAutoResponseQueueCommand toQueueCommand(
             AuthenticatedUserDto currentUser,
-            HhVacancyDto vacancy
+            SearchVacancyItem vacancy
     ) {
-        String vacancyUrl = firstNonBlank(
-                vacancy.alternateUrl(),
-                vacancy.url()
-        );
-
         return new AddVacancyToAutoResponseQueueCommand(
                 UserId.of(currentUser.id()),
-                VacancySource.HH_RU,
+                vacancy.source(),
                 vacancy.externalId(),
                 vacancy.name(),
                 vacancy.employerName(),
                 vacancy.areaName(),
-                vacancyUrl
+                vacancy.vacancyUrl()
         );
     }
 
@@ -1102,8 +1241,8 @@ public final class AutoResponsesController {
             failedVacancyIds.add(failure.externalVacancyId());
         }
 
-        selectedVacancyExternalIds.retainAll(
-                failedVacancyIds
+        selectedVacancyKeys.removeIf(key ->
+                !failedVacancyIds.contains(externalVacancyIdFromKey(key))
         );
 
         refreshVacancySelectionUi();
@@ -1143,26 +1282,26 @@ public final class AutoResponsesController {
         vacanciesListView.refresh();
     }
 
-    private List<AutoResponseQueueItemDto> getSelectedQueuedQueueItems() {
+    private List<AutoResponseQueueItemDto> getSelectedQueueItemsByStatus(
+            AutoResponseQueueStatus status
+    ) {
         return queueListView.getItems()
                 .stream()
-                .filter(item ->
-                        item.status() == AutoResponseQueueStatus.QUEUED
-                )
-                .filter(this::isQueueItemSelectedForReady)
+                .filter(item -> item.status() == status)
+                .filter(this::isQueueItemSelectedForBulkAction)
                 .toList();
     }
 
-    private void setCurrentQueueItemsSelectedForReady(
+    private void setCurrentQueueItemsSelectedForBulkAction(
             boolean selected
     ) {
-        if (queueReadyBatchLoading) {
+        if (queueBulkStatusUpdateLoading) {
             return;
         }
 
         for (AutoResponseQueueItemDto item : queueListView.getItems()) {
-            if (item.status() == AutoResponseQueueStatus.QUEUED) {
-                updateQueueItemReadySelection(
+            if (isQueueItemEligibleForBulkAction(item)) {
+                updateQueueItemBulkSelection(
                         item,
                         selected,
                         false
@@ -1173,20 +1312,30 @@ public final class AutoResponsesController {
         refreshQueueSelectionUi();
     }
 
-    private void updateQueueItemReadySelection(
+    private boolean isQueueItemEligibleForBulkAction(
+            AutoResponseQueueItemDto item
+    ) {
+        if (item == null) {
+            return false;
+        }
+
+        return item.status() == AutoResponseQueueStatus.QUEUED
+                || item.status() == AutoResponseQueueStatus.READY;
+    }
+
+    private void updateQueueItemBulkSelection(
             AutoResponseQueueItemDto item,
             boolean selected,
             boolean refreshUi
     ) {
-        if (item == null
-                || item.status() != AutoResponseQueueStatus.QUEUED) {
+        if (!isQueueItemEligibleForBulkAction(item)) {
             return;
         }
 
         if (selected) {
-            selectedQueuedQueueItemIds.add(item.id());
+            selectedQueueItemIds.add(item.id());
         } else {
-            selectedQueuedQueueItemIds.remove(item.id());
+            selectedQueueItemIds.remove(item.id());
         }
 
         if (refreshUi) {
@@ -1194,16 +1343,15 @@ public final class AutoResponsesController {
         }
     }
 
-    private boolean isQueueItemSelectedForReady(
+    private boolean isQueueItemSelectedForBulkAction(
             AutoResponseQueueItemDto item
     ) {
-        return item != null
-                && item.status() == AutoResponseQueueStatus.QUEUED
-                && selectedQueuedQueueItemIds.contains(item.id());
+        return isQueueItemEligibleForBulkAction(item)
+                && selectedQueueItemIds.contains(item.id());
     }
 
-    private void clearQueueReadySelection() {
-        selectedQueuedQueueItemIds.clear();
+    private void clearQueueBulkSelection() {
+        selectedQueueItemIds.clear();
 
         updatingSelectAllQueuedQueueItems = true;
         selectAllQueuedQueueItemsCheckBox.setSelected(false);
@@ -1214,19 +1362,26 @@ public final class AutoResponsesController {
     }
 
     private void refreshQueueSelectionUi() {
-        List<AutoResponseQueueItemDto> queuedItems = queueListView.getItems()
+        List<AutoResponseQueueItemDto> selectableItems = queueListView
+                .getItems()
                 .stream()
-                .filter(item ->
-                        item.status() == AutoResponseQueueStatus.QUEUED
-                )
+                .filter(this::isQueueItemEligibleForBulkAction)
                 .toList();
 
-        int selectedCount = (int) queuedItems.stream()
-                .filter(this::isQueueItemSelectedForReady)
+        int selectedQueuedCount = (int) selectableItems.stream()
+                .filter(item -> item.status() == AutoResponseQueueStatus.QUEUED)
+                .filter(this::isQueueItemSelectedForBulkAction)
                 .count();
 
-        boolean allSelected = !queuedItems.isEmpty()
-                && selectedCount == queuedItems.size();
+        int selectedReadyCount = (int) selectableItems.stream()
+                .filter(item -> item.status() == AutoResponseQueueStatus.READY)
+                .filter(this::isQueueItemSelectedForBulkAction)
+                .count();
+
+        int selectedCount = selectedQueuedCount + selectedReadyCount;
+
+        boolean allSelected = !selectableItems.isEmpty()
+                && selectedCount == selectableItems.size();
 
         boolean partiallySelected = selectedCount > 0
                 && !allSelected;
@@ -1238,28 +1393,42 @@ public final class AutoResponsesController {
         );
         updatingSelectAllQueuedQueueItems = false;
 
-        boolean queueSelectionLocked = queueReadyBatchLoading
+        boolean queueSelectionLocked = queueBulkStatusUpdateLoading
                 || isAutoResponseBatchActive();
 
         selectAllQueuedQueueItemsCheckBox.setDisable(
-                queueSelectionLocked || queuedItems.isEmpty()
+                queueSelectionLocked || selectableItems.isEmpty()
         );
 
         markSelectedQueueItemsReadyButton.setDisable(
-                queueSelectionLocked || selectedCount == 0
+                queueSelectionLocked || selectedQueuedCount == 0
         );
 
-        selectedQueuedQueueItemCountLabel.setText(
-                "Выбрано: " + selectedCount
+        returnSelectedQueueItemsToQueuedButton.setDisable(
+                queueSelectionLocked || selectedReadyCount == 0
         );
+
+        if (selectedCount == 0) {
+            selectedQueuedQueueItemCountLabel.setText("Выбрано: 0");
+        } else {
+            selectedQueuedQueueItemCountLabel.setText(
+                    "Выбрано: "
+                            + selectedCount
+                            + " (в очереди: "
+                            + selectedQueuedCount
+                            + ", готово: "
+                            + selectedReadyCount
+                            + ")"
+            );
+        }
 
         queueListView.refresh();
     }
 
-    private void setQueueReadyBatchLoading(
+    private void setQueueBulkStatusUpdateLoading(
             boolean loading
     ) {
-        queueReadyBatchLoading = loading;
+        queueBulkStatusUpdateLoading = loading;
 
         if (loading) {
             setQueueActionButtonsDisabled(true);
@@ -1279,6 +1448,22 @@ public final class AutoResponsesController {
                 + result.markedReadyCount()
                 + ". Уже готовы: "
                 + result.alreadyReadyCount()
+                + ". Не подходят по статусу: "
+                + result.notEligibleCount()
+                + ". Не найдены: "
+                + result.notFoundCount()
+                + ". Ошибок: "
+                + result.failedCount()
+                + ".";
+    }
+
+    private String formatBatchReturnToQueuedResult(
+            ReturnAutoResponseQueueItemsToQueuedResultDto result
+    ) {
+        return "В очередь возвращено: "
+                + result.returnedToQueuedCount()
+                + ". Уже в очереди: "
+                + result.alreadyQueuedCount()
                 + ". Не подходят по статусу: "
                 + result.notEligibleCount()
                 + ". Не найдены: "
@@ -1480,7 +1665,35 @@ public final class AutoResponsesController {
     }
 
     private String formatBatchProgress(AutoResponseBatchProgressDto progress) {
-        return "Массовый запуск: " + formatBatchProgressStatus(progress.status()) + ". Запущено: " + progress.startedCount() + " из " + progress.plannedCount() + ". Отправлено с подтверждённым письмом: " + progress.sentCount() + ". Частичный результат: " + progress.partialSuccessCount() + ". Ожидают кандидата: " + progress.candidateApprovalRequiredCount() + ". Возвращено в READY: " + progress.returnedToReadyCount() + ". Ошибок: " + progress.failedCount() + ". Пропущено: " + progress.skippedCount() + ".";
+        StringBuilder builder = new StringBuilder();
+
+        builder.append("Массовый запуск: ")
+                .append(formatBatchProgressStatus(progress.status()))
+                .append(". Запущено: ")
+                .append(progress.startedCount())
+                .append(" из ")
+                .append(progress.plannedCount())
+                .append(". Отправлено с подтверждённым письмом: ")
+                .append(progress.sentCount())
+                .append(". Частичный результат: ")
+                .append(progress.partialSuccessCount())
+                .append(". Ожидают кандидата: ")
+                .append(progress.candidateApprovalRequiredCount())
+                .append(". Возвращено в READY: ")
+                .append(progress.returnedToReadyCount())
+                .append(". Ошибок: ")
+                .append(progress.failedCount())
+                .append(". Пропущено: ")
+                .append(progress.skippedCount())
+                .append(".");
+
+        if (progress.isHabrStreamPaused()) {
+            builder.append(" ")
+                    .append(progress.habrStreamPauseReason())
+                    .append(" Оставшиеся Habr-вакансии сохранены в READY.");
+        }
+
+        return builder.toString();
     }
 
     private String formatBatchProgressStatus(
@@ -1512,20 +1725,123 @@ public final class AutoResponsesController {
                     setQueueLoading(false);
 
                     if (throwable == null) {
-                        clearQueueReadySelection();
-                        queueListView.getSelectionModel().clearSelection();
-                        queueListView.getItems().setAll(items);
-                        setQueueActionButtonsDisabled(true);
-
-                        if (items.isEmpty()) {
-                            setQueueStatus("Очередь автооткликов пока пуста.");
-                        } else {
-                            setQueueStatus("В очереди вакансий: " + items.size());
-                        }
+                        loadedQueueItems = List.copyOf(items);
+                        readyQueueOnlyView = false;
+                        applyQueueFilters();
                     } else {
-                        setQueueStatus("Не удалось загрузить очередь автооткликов: " + rootMessage(throwable));
+                        setQueueStatus(
+                                "Не удалось загрузить очередь автооткликов: "
+                                        + rootMessage(throwable)
+                        );
                     }
                 }));
+    }
+
+    private void applyQueueFilters() {
+        String selectedSourceFilter = selectedQueueSourceFilter();
+        boolean showSentItems = showSentQueueItemsCheckBox.isSelected();
+
+        List<AutoResponseQueueItemDto> sourceMatchedItems = loadedQueueItems
+                .stream()
+                .filter(item -> matchesQueueSourceFilter(
+                        item,
+                        selectedSourceFilter
+                ))
+                .toList();
+
+        List<AutoResponseQueueItemDto> statusMatchedItems = sourceMatchedItems
+                .stream()
+                .filter(item -> !readyQueueOnlyView
+                        || item.status() == AutoResponseQueueStatus.READY)
+                .filter(item -> showSentItems
+                        || item.status() != AutoResponseQueueStatus.SENT)
+                .toList();
+
+        int hiddenBySourceCount = loadedQueueItems.size()
+                - sourceMatchedItems.size();
+        int hiddenSentCount = (int) sourceMatchedItems.stream()
+                .filter(item -> item.status() == AutoResponseQueueStatus.SENT)
+                .count();
+
+        clearQueueBulkSelection();
+        queueListView.getSelectionModel().clearSelection();
+        queueListView.getItems().setAll(statusMatchedItems);
+        setQueueActionButtonsDisabled(true);
+        refreshQueueSelectionUi();
+
+        setQueueStatus(
+                formatQueueFilterStatus(
+                        statusMatchedItems.size(),
+                        hiddenBySourceCount,
+                        hiddenSentCount,
+                        selectedSourceFilter,
+                        showSentItems
+                )
+        );
+    }
+
+    private String selectedQueueSourceFilter() {
+        String selectedFilter = queueSourceFilterComboBox
+                .getSelectionModel()
+                .getSelectedItem();
+
+        return selectedFilter == null
+                ? QUEUE_SOURCE_FILTER_ALL
+                : selectedFilter;
+    }
+
+    private boolean matchesQueueSourceFilter(
+            AutoResponseQueueItemDto item,
+            String selectedSourceFilter
+    ) {
+        if (item == null || selectedSourceFilter == null
+                || QUEUE_SOURCE_FILTER_ALL.equals(selectedSourceFilter)) {
+            return true;
+        }
+
+        return switch (selectedSourceFilter) {
+            case PLATFORM_HH -> item.source() == VacancySource.HH_RU;
+            case PLATFORM_HABR_CAREER ->
+                    item.source() == VacancySource.HABR_CAREER;
+            default -> true;
+        };
+    }
+
+    private String formatQueueFilterStatus(
+            int displayedCount,
+            int hiddenBySourceCount,
+            int hiddenSentCount,
+            String selectedSourceFilter,
+            boolean showSentItems
+    ) {
+        String scope = readyQueueOnlyView
+                ? "Готовы к отклику"
+                : "В активной очереди";
+
+        StringBuilder message = new StringBuilder(scope)
+                .append(": ")
+                .append(displayedCount)
+                .append(". Платформа: ")
+                .append(selectedSourceFilter)
+                .append(".");
+
+        if (!showSentItems && hiddenSentCount > 0) {
+            message.append(" Отправленных скрыто: ")
+                    .append(hiddenSentCount)
+                    .append(".");
+        }
+
+        if (hiddenBySourceCount > 0) {
+            message.append(" Скрыто другим фильтром платформы: ")
+                    .append(hiddenBySourceCount)
+                    .append(".");
+        }
+
+        if (displayedCount == 0) {
+            message.append(" Подходящих вакансий не найдено.");
+        }
+
+        return message.toString();
     }
 
     private void updateSelectedQueueItemStatus(AutoResponseQueueStatus status) {
@@ -1591,29 +1907,29 @@ public final class AutoResponsesController {
         setQueueLoading(true);
         setQueueStatus("Загружаем вакансии, готовые к отклику...");
 
-        getReadyAutoResponseQueueItemsUseCase.getReadyItems(UserId.of(currentUser.id()))
-                .whenComplete((items, throwable) -> Platform.runLater(() -> {
-                    setQueueLoading(false);
+        getReadyAutoResponseQueueItemsUseCase.getReadyItems(
+                        UserId.of(currentUser.id())
+                )
+                .whenComplete((items, throwable) ->
+                        Platform.runLater(() -> {
+                            setQueueLoading(false);
 
-                    if (throwable == null) {
-                        clearQueueReadySelection();
-                        queueListView.getSelectionModel().clearSelection();
-                        queueListView.getItems().setAll(items);
-                        setQueueActionButtonsDisabled(true);
-                        refreshQueueSelectionUi();
-
-                        if (items.isEmpty()) {
-                            setQueueStatus("Нет вакансий со статусом «Готова к отклику».");
-                        } else {
-                            setQueueStatus("Готовы к отклику: " + items.size());
-                        }
-                    } else {
-                        setQueueStatus("Не удалось загрузить готовые к отклику вакансии: " + rootMessage(throwable));
-                    }
-                }));
+                            if (throwable == null) {
+                                loadedQueueItems = List.copyOf(items);
+                                readyQueueOnlyView = true;
+                                applyQueueFilters();
+                            } else {
+                                setQueueStatus(
+                                        "Не удалось загрузить готовые к отклику "
+                                                + "вакансии: "
+                                                + rootMessage(throwable)
+                                );
+                            }
+                        })
+                );
     }
 
-    private void loadSearchPage(
+    private void loadHhSearchPage(
             String text,
             String area,
             int page,
@@ -1666,13 +1982,130 @@ public final class AutoResponsesController {
                             currentSearchPerPage = result.perPage() > 0
                                     ? result.perPage()
                                     : perPage;
+                            lastHhSearchResult = result;
 
-                            lastSearchResult = result;
-
-                            showSearchResult(result);
+                            showHhSearchResult(result);
                             updateSearchControls();
                         })
                 );
+    }
+
+    private void loadAllHabrCareerVacancies(
+            String text,
+            String city
+    ) {
+        AuthenticatedUserDto currentUser = currentUserSession.getCurrentUser()
+                .orElse(null);
+
+        if (currentUser == null) {
+            setStatus("Сначала войдите в аккаунт JobHunterPro.");
+            return;
+        }
+
+        HabrCareerVacancySearchQuery query;
+
+        try {
+            query = new HabrCareerVacancySearchQuery(text, 1);
+        } catch (IllegalArgumentException exception) {
+            setStatus(
+                    "Некорректные параметры поиска Habr Career: "
+                            + exception.getMessage()
+            );
+            return;
+        }
+
+        searchLoading = true;
+        updateSearchControls();
+
+        setStatus(
+                "Habr Career: подключаемся к браузерному профилю и "
+                        + "загружаем все страницы результата. Это может "
+                        + "занять некоторое время, поскольку кандидатский "
+                        + "поиск выполняется без API."
+        );
+
+        searchHabrCareerVacanciesUseCase.searchAll(
+                        UserId.of(currentUser.id()),
+                        query,
+                        progress -> Platform.runLater(() -> setStatus(
+                                formatHabrFullSearchProgress(progress)
+                        ))
+                )
+                .whenComplete((result, throwable) ->
+                        Platform.runLater(() -> {
+                            searchLoading = false;
+
+                            if (throwable != null) {
+                                setStatus(
+                                        "Не удалось выполнить поиск Habr Career: "
+                                                + rootMessage(throwable)
+                                );
+                                updateSearchControls();
+                                return;
+                            }
+
+                            if (!result.isReady()) {
+                                clearSearchResults();
+                                lastHabrCareerFullSearchResult = null;
+                                setStatus(
+                                        formatHabrFullSearchFailure(
+                                                result.status()
+                                        )
+                                );
+                                updateSearchControls();
+                                return;
+                            }
+
+                            lastHhSearchResult = null;
+                            activeSearchText = null;
+                            activeSearchArea = null;
+                            currentSearchPage = 0;
+                            lastHabrCareerFullSearchResult = result;
+                            activeHabrSearchText = query.query();
+                            activeHabrCity = normalize(city);
+
+                            List<SearchVacancyItem> loadedItems = result.vacancies()
+                                    .stream()
+                                    .map(this::toSearchVacancyItem)
+                                    .toList();
+
+                            List<SearchVacancyItem> displayedItems = loadedItems
+                                    .stream()
+                                    .filter(vacancy -> matchesHabrKeywordTokens(
+                                            vacancy,
+                                            activeHabrSearchText
+                                    ))
+                                    .filter(vacancy -> matchesHabrCity(
+                                            vacancy,
+                                            activeHabrCity
+                                    ))
+                                    .toList();
+
+                            showHabrFullSearchResult(
+                                    displayedItems,
+                                    loadedItems.size(),
+                                    result
+                            );
+                            updateSearchControls();
+                        })
+                );
+    }
+
+    private String formatHabrFullSearchProgress(
+            HabrCareerVacancySearchProgressDto progress
+    ) {
+        if (!progress.hasKnownTotalPages()) {
+            return "Habr Career: вакансий по запросу не найдено.";
+        }
+
+        return "Habr Career: загружено страниц "
+                + progress.loadedPages()
+                + " из "
+                + progress.totalPages()
+                + ". Вакансий получено: "
+                + progress.loadedVacancyCount()
+                + ". Поиск выполняется через браузерный профиль; "
+                + "это может занять некоторое время.";
     }
 
     private int selectedPageSize() {
@@ -1691,48 +2124,36 @@ public final class AutoResponsesController {
         boolean hasSelectedVacancies =
                 !getSelectedCurrentPageVacancies().isEmpty();
 
-        boolean interactionLocked = searchLoading
-                || queueAdditionLoading;
+        boolean interactionLocked = searchLoading || queueAdditionLoading;
+        boolean hhPlatformSelected = PLATFORM_HH.equals(selectedPlatform());
 
-        boolean hasPreviousPage = lastSearchResult != null
-                && lastSearchResult.hasPreviousPage();
+        boolean hasPreviousPage = hhPlatformSelected
+                && lastHhSearchResult != null
+                && lastHhSearchResult.hasPreviousPage();
 
-        boolean hasNextPage = lastSearchResult != null
-                && lastSearchResult.hasNextPage();
+        boolean hasNextPage = hhPlatformSelected
+                && lastHhSearchResult != null
+                && lastHhSearchResult.hasNextPage();
 
         searchButton.setDisable(interactionLocked);
-
-        pageSizeComboBox.setDisable(interactionLocked);
-
-        previousPageButton.setDisable(
-                interactionLocked || !hasPreviousPage
-        );
-
-        nextPageButton.setDisable(
-                interactionLocked || !hasNextPage
-        );
+        pageSizeComboBox.setDisable(interactionLocked || !hhPlatformSelected);
+        previousPageButton.setDisable(interactionLocked || !hasPreviousPage);
+        nextPageButton.setDisable(interactionLocked || !hasNextPage);
 
         selectAllVacanciesCheckBox.setDisable(
-                interactionLocked
-                        || vacanciesListView.getItems().isEmpty()
+                interactionLocked || vacanciesListView.getItems().isEmpty()
         );
+        openVacancyButton.setDisable(interactionLocked || !vacancySelected);
+        addToQueueButton.setDisable(interactionLocked || !hasSelectedVacancies);
 
-        openVacancyButton.setDisable(
-                interactionLocked || !vacancySelected
-        );
-
-        addToQueueButton.setDisable(
-                interactionLocked || !hasSelectedVacancies
-        );
-
-        paginationLabel.setText(
-                formatPagination(lastSearchResult)
-        );
+        paginationLabel.setText(hhPlatformSelected
+                ? formatHhPagination(lastHhSearchResult)
+                : formatHabrFullSearchPagination(
+                lastHabrCareerFullSearchResult
+        ));
     }
 
-    private String formatPagination(
-            HhVacancySearchResultDto result
-    ) {
+    private String formatHhPagination(HhVacancySearchResultDto result) {
         if (result == null) {
             return "Страница —";
         }
@@ -1747,15 +2168,32 @@ public final class AutoResponsesController {
                 + result.pages();
     }
 
+
+    private String formatHabrFullSearchPagination(
+            HabrCareerVacancyFullSearchResultDto result
+    ) {
+        if (result == null) {
+            return "Habr Career: будут загружены все страницы";
+        }
+
+        if (result.totalPages() <= 0) {
+            return "Habr Career: вакансии не найдены";
+        }
+
+        return "Habr Career: загружено страниц "
+                + result.loadedPages()
+                + " из "
+                + result.totalPages();
+    }
+
     private void setCurrentPageVacanciesSelected(
             boolean selected
     ) {
-
         if (queueAdditionLoading) {
             return;
         }
 
-        for (HhVacancyDto vacancy : vacanciesListView.getItems()) {
+        for (SearchVacancyItem vacancy : vacanciesListView.getItems()) {
             updateVacancySelection(vacancy, selected, false);
         }
 
@@ -1763,20 +2201,20 @@ public final class AutoResponsesController {
     }
 
     private void updateVacancySelection(
-            HhVacancyDto vacancy,
+            SearchVacancyItem vacancy,
             boolean selected,
             boolean refreshUi
     ) {
-        if (vacancy == null
-                || vacancy.externalId() == null
-                || vacancy.externalId().isBlank()) {
+        if (vacancy == null) {
             return;
         }
 
+        String key = vacancy.selectionKey();
+
         if (selected) {
-            selectedVacancyExternalIds.add(vacancy.externalId());
+            selectedVacancyKeys.add(key);
         } else {
-            selectedVacancyExternalIds.remove(vacancy.externalId());
+            selectedVacancyKeys.remove(key);
         }
 
         if (refreshUi) {
@@ -1784,18 +2222,13 @@ public final class AutoResponsesController {
         }
     }
 
-    private boolean isVacancySelected(
-            HhVacancyDto vacancy
-    ) {
+    private boolean isVacancySelected(SearchVacancyItem vacancy) {
         return vacancy != null
-                && vacancy.externalId() != null
-                && selectedVacancyExternalIds.contains(
-                vacancy.externalId()
-        );
+                && selectedVacancyKeys.contains(vacancy.selectionKey());
     }
 
     private void clearCurrentPageVacancySelection() {
-        selectedVacancyExternalIds.clear();
+        selectedVacancyKeys.clear();
 
         updatingSelectAllVacancies = true;
         selectAllVacanciesCheckBox.setSelected(false);
@@ -1831,48 +2264,135 @@ public final class AutoResponsesController {
         vacanciesListView.refresh();
     }
 
-    private void showSearchResult(
-            HhVacancySearchResultDto result
-    ) {
-        clearCurrentPageVacancySelection();
+    private void showHhSearchResult(HhVacancySearchResultDto result) {
+        List<SearchVacancyItem> items = result.vacancies()
+                .stream()
+                .map(this::toSearchVacancyItem)
+                .toList();
 
-        vacanciesListView.getSelectionModel().clearSelection();
-
-        vacanciesListView.getItems().setAll(
-                result.vacancies()
-        );
+        showSearchItems(items);
 
         resultCountLabel.setText(
                 "Найдено: "
                         + result.found()
                         + " · Показано: "
-                        + result.vacancies().size()
+                        + items.size()
         );
 
-        if (result.vacancies().isEmpty()) {
-            setStatus("Поиск завершен. Вакансии не найдены.");
+        if (items.isEmpty()) {
+            setStatus("Поиск HH.ru завершён. Вакансии не найдены.");
             return;
         }
 
         setStatus(
-                "Поиск завершен. Показана страница "
+                "Поиск HH.ru завершён. Показана страница "
                         + result.displayedPageNumber()
                         + " из "
                         + result.pages()
                         + "."
         );
+    }
 
+    private void showHabrFullSearchResult(
+            List<SearchVacancyItem> items,
+            int loadedVacancyCount,
+            HabrCareerVacancyFullSearchResultDto result
+    ) {
+        showSearchItems(items);
+
+        resultCountLabel.setText(
+                "Найдено Habr Career: "
+                        + result.totalResults()
+                        + " · Получено: "
+                        + loadedVacancyCount
+                        + " · Показано: "
+                        + items.size()
+        );
+
+        if (items.isEmpty()) {
+            if (activeHabrCity == null) {
+                setStatus(
+                        "Habr Career: после загрузки всех страниц "
+                                + "подходящие вакансии не найдены."
+                );
+            } else {
+                setStatus(
+                        "Habr Career: после загрузки всех страниц нет "
+                                + "вакансий по городу «"
+                                + activeHabrCity
+                                + "»."
+                );
+            }
+            return;
+        }
+
+        if (result.isComplete()) {
+            setStatus(
+                    "Habr Career: загружены все "
+                            + result.loadedPages()
+                            + " стр. из "
+                            + result.totalPages()
+                            + ". Отклики не выполнялись."
+            );
+            return;
+        }
+
+        setStatus(
+                "Habr Career: загружено страниц "
+                        + result.loadedPages()
+                        + " из "
+                        + result.totalPages()
+                        + ". Страница "
+                        + result.failedPage()
+                        + " не загружена; показан частичный результат."
+        );
+    }
+
+    private void showSearchItems(List<SearchVacancyItem> items) {
+        clearCurrentPageVacancySelection();
+        vacanciesListView.getSelectionModel().clearSelection();
+        vacanciesListView.getItems().setAll(items);
         refreshVacancySelectionUi();
     }
 
-    private String formatVacancy(HhVacancyDto vacancy) {
-        return vacancy.name()
-                + "\nПлатформа: HH.ru"
-                + "\nКомпания: " + valueOrUnknown(vacancy.employerName())
-                + "\nРегион: " + valueOrUnknown(vacancy.areaName())
-                + "\nЗарплата: " + formatSalary(vacancy.salary())
-                + "\nОпыт: " + valueOrUnknown(vacancy.experienceName())
-                + "\nГрафик: " + valueOrUnknown(vacancy.scheduleName());
+    private void clearSearchResults() {
+        clearCurrentPageVacancySelection();
+        vacanciesListView.getSelectionModel().clearSelection();
+        vacanciesListView.getItems().clear();
+        resultCountLabel.setText("");
+        refreshVacancySelectionUi();
+    }
+
+    private String formatVacancy(SearchVacancyItem vacancy) {
+        StringBuilder builder = new StringBuilder();
+
+        builder.append(vacancy.name())
+                .append("\nПлатформа: ")
+                .append(formatSourceName(vacancy.source()))
+                .append("\nКомпания: ")
+                .append(valueOrUnknown(vacancy.employerName()))
+                .append("\nРегион: ")
+                .append(valueOrUnknown(vacancy.areaName()))
+                .append("\nЗарплата: ")
+                .append(valueOrUnknown(vacancy.salary()));
+
+        if (vacancy.qualification() != null
+                && !vacancy.qualification().isBlank()) {
+            builder.append("\nУровень/опыт: ")
+                    .append(vacancy.qualification());
+        }
+
+        if (vacancy.workFormat() != null
+                && !vacancy.workFormat().isBlank()) {
+            builder.append("\nФормат работы: ")
+                    .append(vacancy.workFormat());
+        }
+
+        if (vacancy.skills() != null && !vacancy.skills().isBlank()) {
+            builder.append("\nНавыки: ").append(vacancy.skills());
+        }
+
+        return builder.toString();
     }
 
     private String formatQueueItem(
@@ -1882,14 +2402,16 @@ public final class AutoResponsesController {
 
         builder.append(item.vacancyName())
                 .append("\nПлатформа: ")
-                .append(item.source())
+                .append(formatSourceName(item.source()))
                 .append("\nКомпания: ")
                 .append(valueOrUnknown(item.employerName()))
                 .append("\nРегион: ")
                 .append(valueOrUnknown(item.areaName()))
                 .append("\nСтатус: ")
                 .append(formatQueueStatus(item.status()))
-                .append("\nID HH: ")
+                .append("\nID ")
+                .append(formatSourceName(item.source()))
+                .append(": ")
                 .append(item.externalVacancyId())
                 .append("\nСсылка: ")
                 .append(valueOrUnknown(item.vacancyUrl()))
@@ -1925,11 +2447,13 @@ public final class AutoResponsesController {
     private void setQueueLoading(boolean loading) {
         refreshQueueButton.setDisable(loading);
         showReadyQueueButton.setDisable(loading);
+        showSentQueueItemsCheckBox.setDisable(loading);
+        queueSourceFilterComboBox.setDisable(loading);
         setQueueActionButtonsDisabled(loading);
     }
 
     private void updateQueueActionButtons(AutoResponseQueueItemDto selectedItem) {
-        if (QueueActionButtonsAvailabilityPolicy.shouldDisableAll(selectedItem, isAutoResponseBatchActive(), queueReadyBatchLoading)) {
+        if (QueueActionButtonsAvailabilityPolicy.shouldDisableAll(selectedItem, isAutoResponseBatchActive(), queueBulkStatusUpdateLoading)) {
             setQueueActionButtonsDisabled(true);
             return;
         }
@@ -1971,6 +2495,199 @@ public final class AutoResponsesController {
             case SKIPPED -> "Пропущена";
             case WAITING_CANDIDATE_APPROVAL -> "Ожидается одобрение кандидата";
         };
+    }
+
+
+    private void onSearchPlatformChanged(
+            String previousPlatform,
+            String platform
+    ) {
+        if (PLATFORM_HH.equals(previousPlatform)
+                && PLATFORM_HABR_CAREER.equals(platform)) {
+            savedHhArea = areaTextField.getText();
+            areaTextField.clear();
+        } else if (PLATFORM_HABR_CAREER.equals(previousPlatform)
+                && PLATFORM_HH.equals(platform)) {
+            areaTextField.setText(savedHhArea);
+        }
+
+        lastHhSearchResult = null;
+        lastHabrCareerFullSearchResult = null;
+        activeSearchText = null;
+        activeSearchArea = null;
+        activeHabrSearchText = null;
+        activeHabrCity = null;
+        clearSearchResults();
+        updatePlatformSpecificSearchControls();
+        updateSearchControls();
+
+        updateHabrSearchNotice();
+
+        setStatus(PLATFORM_HABR_CAREER.equals(platform)
+                ? "Habr Career: будут последовательно загружены все страницы "
+                + "через подключённый браузерный профиль. Отклики не выполняются."
+                : "HH.ru: введите ключевые слова и нажмите «Найти».");
+    }
+
+    private void updatePlatformSpecificSearchControls() {
+        boolean habrCareerSelected = PLATFORM_HABR_CAREER.equals(
+                selectedPlatform()
+        );
+
+        areaLabel.setText(habrCareerSelected
+                ? "Город Habr Career (необязательно)"
+                : "Регион HH area id");
+        areaTextField.setPromptText(habrCareerSelected
+                ? "Например: Москва"
+                : "113");
+
+        if (habrCareerSelected) {
+            pageSizeComboBox.getSelectionModel().select(Integer.valueOf(25));
+        } else if (Integer.valueOf(25).equals(
+                pageSizeComboBox.getSelectionModel().getSelectedItem()
+        )) {
+            pageSizeComboBox.getSelectionModel()
+                    .select(Integer.valueOf(DEFAULT_SEARCH_PAGE_SIZE));
+        }
+
+        pageSizeComboBox.setDisable(habrCareerSelected || searchLoading);
+    }
+
+    private void updateHabrSearchNotice() {
+        boolean habrCareerSelected = PLATFORM_HABR_CAREER.equals(
+                selectedPlatform()
+        );
+
+        habrSearchNoticeLabel.setVisible(habrCareerSelected);
+        habrSearchNoticeLabel.setManaged(habrCareerSelected);
+
+        if (habrCareerSelected) {
+            habrSearchNoticeLabel.setText(
+                    "Habr Career: поиск загружает все страницы через "
+                            + "авторизованный браузерный профиль. Это может "
+                            + "занять некоторое время, поскольку для "
+                            + "кандидатского поиска нет используемого API."
+            );
+        } else {
+            habrSearchNoticeLabel.setText("");
+        }
+    }
+
+    private String selectedPlatform() {
+        return platformComboBox.getSelectionModel().getSelectedItem();
+    }
+
+    private boolean matchesHabrKeywordTokens(
+            SearchVacancyItem vacancy,
+            String searchText
+    ) {
+        if (searchText == null || searchText.isBlank()) {
+            return true;
+        }
+
+        Set<String> vacancyTokens = tokenizeHabrSearchValue(
+                String.join(
+                        " ",
+                        vacancy.name(),
+                        vacancy.employerName(),
+                        vacancy.qualification(),
+                        vacancy.workFormat(),
+                        vacancy.skills()
+                )
+        );
+
+        return tokenizeHabrSearchValue(searchText)
+                .stream()
+                .allMatch(vacancyTokens::contains);
+    }
+
+    private Set<String> tokenizeHabrSearchValue(String value) {
+        if (value == null || value.isBlank()) {
+            return Set.of();
+        }
+
+        return Arrays.stream(value.toLowerCase(Locale.ROOT)
+                        .split("[^\\p{L}\\p{N}+#.]+"))
+                .map(String::trim)
+                .filter(token -> !token.isBlank())
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
+    private boolean matchesHabrCity(
+            SearchVacancyItem vacancy,
+            String city
+    ) {
+        if (city == null) {
+            return true;
+        }
+
+        return Arrays.stream(vacancy.areaName().split("[,;/]"))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .anyMatch(value -> value.equalsIgnoreCase(city));
+    }
+
+    private SearchVacancyItem toSearchVacancyItem(HhVacancyDto vacancy) {
+        return new SearchVacancyItem(
+                VacancySource.HH_RU,
+                vacancy.externalId(),
+                vacancy.name(),
+                firstNonBlank(vacancy.alternateUrl(), vacancy.url()),
+                vacancy.employerName(),
+                vacancy.areaName(),
+                formatSalary(vacancy.salary()),
+                normalize(vacancy.experienceName()),
+                normalize(vacancy.scheduleName()),
+                ""
+        );
+    }
+
+    private SearchVacancyItem toSearchVacancyItem(
+            HabrCareerVisibleVacancyDto vacancy
+    ) {
+        return new SearchVacancyItem(
+                VacancySource.HABR_CAREER,
+                vacancy.externalVacancyId(),
+                vacancy.title(),
+                vacancy.vacancyUrl(),
+                vacancy.companyName(),
+                vacancy.city(),
+                vacancy.salary(),
+                vacancy.qualification(),
+                vacancy.workFormat(),
+                String.join(", ", vacancy.skills())
+        );
+    }
+
+    private String formatHabrFullSearchFailure(
+            HabrCareerVacancyFullSearchResultDto.Status status
+    ) {
+        return switch (status) {
+            case AUTHENTICATION_REQUIRED ->
+                    "Habr Career требует входа в браузерный профиль. "
+                            + "Откройте профиль Habr Career и авторизуйтесь.";
+            case VACANCY_CARDS_NOT_FOUND ->
+                    "Habr Career открылся, но карточки вакансий не найдены.";
+            case UNEXPECTED_PAGE ->
+                    "Habr Career открыл непредвиденную страницу. "
+                            + "Проверьте браузерную сессию.";
+            case ALL_PAGES_LOADED, PARTIAL_PAGES_LOADED ->
+                    throw new IllegalArgumentException(
+                            "Ready Habr Career full search result is not a failure"
+                    );
+        };
+    }
+
+    private String formatSourceName(VacancySource source) {
+        return switch (source) {
+            case HH_RU -> PLATFORM_HH;
+            case HABR_CAREER -> PLATFORM_HABR_CAREER;
+        };
+    }
+
+    private String externalVacancyIdFromKey(String key) {
+        int separatorIndex = key.indexOf('|');
+        return separatorIndex < 0 ? key : key.substring(separatorIndex + 1);
     }
 
     private String formatSalary(HhSalaryDto salary) {
@@ -2306,8 +3023,60 @@ public final class AutoResponsesController {
                 }));
     }
 
+
+    private record SearchVacancyItem(
+            VacancySource source,
+            String externalId,
+            String name,
+            String vacancyUrl,
+            String employerName,
+            String areaName,
+            String salary,
+            String qualification,
+            String workFormat,
+            String skills
+    ) {
+
+        private SearchVacancyItem {
+            source = Objects.requireNonNull(
+                    source,
+                    "Vacancy source must not be null"
+            );
+            externalId = requireNotBlank(
+                    externalId,
+                    "Vacancy external id must not be blank"
+            );
+            name = requireNotBlank(name, "Vacancy name must not be blank");
+            vacancyUrl = normalizeValue(vacancyUrl);
+            employerName = normalizeValue(employerName);
+            areaName = normalizeValue(areaName);
+            salary = normalizeValue(salary);
+            qualification = normalizeValue(qualification);
+            workFormat = normalizeValue(workFormat);
+            skills = normalizeValue(skills);
+        }
+
+        private String selectionKey() {
+            return source.name() + "|" + externalId;
+        }
+
+        private static String requireNotBlank(String value, String message) {
+            String normalized = normalizeValue(value);
+
+            if (normalized.isBlank()) {
+                throw new IllegalArgumentException(message);
+            }
+
+            return normalized;
+        }
+
+        private static String normalizeValue(String value) {
+            return value == null ? "" : value.trim();
+        }
+    }
+
     private final class VacancySelectionListCell
-            extends ListCell<HhVacancyDto> {
+            extends ListCell<SearchVacancyItem> {
 
         private final CheckBox selectionCheckBox = new CheckBox();
 
@@ -2323,15 +3092,11 @@ public final class AutoResponsesController {
             vacancyLabel.setWrapText(true);
             vacancyLabel.setMaxWidth(Double.MAX_VALUE);
 
-            HBox.setHgrow(
-                    vacancyLabel,
-                    Priority.ALWAYS
-            );
-
+            HBox.setHgrow(vacancyLabel, Priority.ALWAYS);
             setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
 
             selectionCheckBox.setOnAction(event -> {
-                HhVacancyDto vacancy = getItem();
+                SearchVacancyItem vacancy = getItem();
 
                 if (vacancy != null) {
                     updateVacancySelection(
@@ -2345,7 +3110,7 @@ public final class AutoResponsesController {
 
         @Override
         protected void updateItem(
-                HhVacancyDto vacancy,
+                SearchVacancyItem vacancy,
                 boolean empty
         ) {
             super.updateItem(vacancy, empty);
@@ -2355,18 +3120,9 @@ public final class AutoResponsesController {
                 return;
             }
 
-            selectionCheckBox.setSelected(
-                    isVacancySelected(vacancy)
-            );
-
-            selectionCheckBox.setDisable(
-                    searchLoading || queueAdditionLoading
-            );
-
-            vacancyLabel.setText(
-                    formatVacancy(vacancy)
-            );
-
+            selectionCheckBox.setSelected(isVacancySelected(vacancy));
+            selectionCheckBox.setDisable(searchLoading || queueAdditionLoading);
+            vacancyLabel.setText(formatVacancy(vacancy));
             setGraphic(content);
         }
     }
@@ -2399,7 +3155,7 @@ public final class AutoResponsesController {
                 AutoResponseQueueItemDto item = getItem();
 
                 if (item != null) {
-                    updateQueueItemReadySelection(
+                    updateQueueItemBulkSelection(
                             item,
                             selectionCheckBox.isSelected(),
                             true
@@ -2420,16 +3176,16 @@ public final class AutoResponsesController {
                 return;
             }
 
-            boolean eligibleForReady = item.status()
-                    == AutoResponseQueueStatus.QUEUED;
+            boolean eligibleForBulkAction =
+                    isQueueItemEligibleForBulkAction(item);
 
             selectionCheckBox.setSelected(
-                    isQueueItemSelectedForReady(item)
+                    isQueueItemSelectedForBulkAction(item)
             );
 
             selectionCheckBox.setDisable(
-                    !eligibleForReady
-                            || queueReadyBatchLoading
+                    !eligibleForBulkAction
+                            || queueBulkStatusUpdateLoading
                             || isAutoResponseBatchActive()
             );
 

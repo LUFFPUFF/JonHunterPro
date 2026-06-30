@@ -38,6 +38,9 @@ public class ProfileController {
             DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
                     .withZone(ZoneId.systemDefault());
 
+    private static final String DEFAULT_HABR_CAREER_DETAILS_PROBE_VACANCY_ID =
+            "1000167360";
+
     private final CurrentUserSession currentUserSession;
     private final UiNavigator uiNavigator;
     private final ConnectHhAccountUseCase connectHhAccountUseCase;
@@ -46,6 +49,16 @@ public class ProfileController {
     private final GetHhCurrentUserUseCase getHhCurrentUserUseCase;
     private final GetHhResumesUseCase getHhResumesUseCase;
     private final GetHabrCareerCurrentUserUseCase getHabrCareerCurrentUserUseCase;
+    private final ProbeHabrCareerBrowserSessionUseCase probeHabrCareerBrowserSessionUseCase;
+    private final ProbeHabrCareerVacancyPageUseCase probeHabrCareerVacancyPageUseCase;
+    private final ProbeHabrCareerVacancyDetailsUseCase
+            probeHabrCareerVacancyDetailsUseCase;
+    private final ProbeHabrCareerResponseFormUseCase
+            probeHabrCareerResponseFormUseCase;
+    private final ProbeHabrCareerPostResponseFormUseCase
+            probeHabrCareerPostResponseFormUseCase;
+    private final ProbeHabrCareerResponseEditFormUseCase
+            probeHabrCareerResponseEditFormUseCase;
     private final GetCandidateQuestionnaireProfileUseCase getCandidateQuestionnaireProfileUseCase;
     private final SaveCandidateQuestionnaireProfileUseCase saveCandidateQuestionnaireProfileUseCase;
 
@@ -87,6 +100,45 @@ public class ProfileController {
 
     @FXML
     private Label habrCareerApiStatusLabel;
+
+    @FXML
+    private Button probeHabrCareerBrowserSessionButton;
+
+    @FXML
+    private Label habrCareerBrowserSessionStatusLabel;
+
+    @FXML
+    private Button probeHabrCareerVacancyPageButton;
+
+    @FXML
+    private Label habrCareerVacancyPageStatusLabel;
+
+    @FXML
+    private TextField habrCareerVacancyIdField;
+
+    @FXML
+    private Button probeHabrCareerVacancyDetailsButton;
+
+    @FXML
+    private Label habrCareerVacancyDetailsStatusLabel;
+
+    @FXML
+    private Button probeHabrCareerResponseFormButton;
+
+    @FXML
+    private Label habrCareerResponseFormStatusLabel;
+
+    @FXML
+    private Button probeHabrCareerPostResponseFormButton;
+
+    @FXML
+    private Label habrCareerPostResponseFormStatusLabel;
+
+    @FXML
+    private Button probeHabrCareerResponseEditFormButton;
+
+    @FXML
+    private Label habrCareerResponseEditFormStatusLabel;
 
     @FXML
     private TextField candidateTimeZoneIdField;
@@ -147,6 +199,12 @@ public class ProfileController {
             GetHhResumesUseCase getHhResumesUseCase,
             ConnectHabrCareerAccountUseCase connectHabrCareerAccountUseCase,
             GetHabrCareerCurrentUserUseCase getHabrCareerCurrentUserUseCase,
+            ProbeHabrCareerBrowserSessionUseCase probeHabrCareerBrowserSessionUseCase,
+            ProbeHabrCareerVacancyPageUseCase probeHabrCareerVacancyPageUseCase,
+            ProbeHabrCareerVacancyDetailsUseCase probeHabrCareerVacancyDetailsUseCase,
+            ProbeHabrCareerResponseFormUseCase probeHabrCareerResponseFormUseCase,
+            ProbeHabrCareerPostResponseFormUseCase probeHabrCareerPostResponseFormUseCase,
+            ProbeHabrCareerResponseEditFormUseCase probeHabrCareerResponseEditFormUseCase,
             GetCandidateQuestionnaireProfileUseCase getCandidateQuestionnaireProfileUseCase,
             SaveCandidateQuestionnaireProfileUseCase saveCandidateQuestionnaireProfileUseCase
     ){
@@ -178,6 +236,30 @@ public class ProfileController {
                 getHabrCareerCurrentUserUseCase,
                 "Get Habr Career current user use case must not be null"
         );
+        this.probeHabrCareerBrowserSessionUseCase = Objects.requireNonNull(
+                probeHabrCareerBrowserSessionUseCase,
+                "Probe Habr Career browser session use case must not be null"
+        );
+        this.probeHabrCareerVacancyPageUseCase = Objects.requireNonNull(
+                probeHabrCareerVacancyPageUseCase,
+                "Probe Habr Career vacancy page use case must not be null"
+        );
+        this.probeHabrCareerVacancyDetailsUseCase = Objects.requireNonNull(
+                probeHabrCareerVacancyDetailsUseCase,
+                "Probe Habr Career vacancy details use case must not be null"
+        );
+        this.probeHabrCareerResponseFormUseCase = Objects.requireNonNull(
+                probeHabrCareerResponseFormUseCase,
+                "Probe Habr Career response form use case must not be null"
+        );
+        this.probeHabrCareerPostResponseFormUseCase = Objects.requireNonNull(
+                probeHabrCareerPostResponseFormUseCase,
+                "Probe Habr Career post-response form use case must not be null"
+        );
+        this.probeHabrCareerResponseEditFormUseCase = Objects.requireNonNull(
+                probeHabrCareerResponseEditFormUseCase,
+                "Probe Habr Career response edit form use case must not be null"
+        );
         this.connectHabrCareerAccountUseCase = Objects.requireNonNull(
                 connectHabrCareerAccountUseCase,
                 "Connect Habr Career account use case must not be null"
@@ -205,6 +287,26 @@ public class ProfileController {
         setHhResumesStatus("Резюме HH.ru не проверялись");
         setHabrCareerStatus("Habr Career не подключён");
         setHabrCareerApiStatus("Habr Career API не проверялся");
+        setHabrCareerBrowserSessionStatus("Браузер Habr Career не проверялся");
+        setHabrCareerVacancyPageStatus("Страница вакансий Habr Career не проверялась");
+        setHabrCareerVacancyDetailsStatus(
+                "Детали вакансии Habr Career не проверялись"
+        );
+        setHabrCareerResponseFormStatus(
+                "Действие отклика Habr Career не проверялось"
+        );
+        setHabrCareerPostResponseFormStatus(
+                "Post-response форма Habr Career не проверялась"
+        );
+        setHabrCareerResponseEditFormStatus(
+                "Форма редактирования отклика Habr Career не проверялась"
+        );
+        if (habrCareerVacancyIdField != null
+                && habrCareerVacancyIdField.getText().isBlank()) {
+            habrCareerVacancyIdField.setText(
+                    DEFAULT_HABR_CAREER_DETAILS_PROBE_VACANCY_ID
+            );
+        }
         configureCandidateQuestionnaireProfileControls();
         applySuggestedCandidateQuestionnaireProfileDefaults();
         setCandidateQuestionnaireProfileStatus(
@@ -351,6 +453,278 @@ public class ProfileController {
 
         UserId userId = UserId.of(currentUser.id());
         checkHabrCareerApi(userId);
+    }
+
+    @FXML
+    private void onProbeHabrCareerBrowserSessionClicked() {
+        AuthenticatedUserDto currentUser = currentUserSession.getCurrentUser()
+                .orElse(null);
+
+        if (currentUser == null) {
+            setHabrCareerBrowserSessionStatus(
+                    "Сначала войдите в аккаунт JobHunterPro."
+            );
+            return;
+        }
+
+        UserId userId = UserId.of(currentUser.id());
+        probeHabrCareerBrowserSessionButton.setDisable(true);
+        setHabrCareerBrowserSessionStatus(
+                "Открываем профиль Habr Career в выделенном Chrome-профиле. "
+                        + "Если появится вход, выполните его в открывшемся окне."
+        );
+
+        probeHabrCareerBrowserSessionUseCase.probe(userId)
+                .whenComplete((result, throwable) -> Platform.runLater(() -> {
+                    probeHabrCareerBrowserSessionButton.setDisable(false);
+
+                    if (throwable == null) {
+                        setHabrCareerBrowserSessionStatus(
+                                formatHabrCareerBrowserSessionStatus(result)
+                        );
+                    } else {
+                        setHabrCareerBrowserSessionStatus(
+                                "Не удалось проверить браузер Habr Career: "
+                                        + rootMessage(throwable)
+                        );
+                    }
+                }));
+    }
+
+    @FXML
+    private void onProbeHabrCareerVacancyPageClicked() {
+        AuthenticatedUserDto currentUser = currentUserSession.getCurrentUser()
+                .orElse(null);
+
+        if (currentUser == null) {
+            setHabrCareerVacancyPageStatus(
+                    "Сначала войдите в аккаунт JobHunterPro."
+            );
+            return;
+        }
+
+        UserId userId = UserId.of(currentUser.id());
+        probeHabrCareerVacancyPageButton.setDisable(true);
+        setHabrCareerVacancyPageStatus(
+                "Открываем страницу вакансий Habr Career в выделенном Chrome-профиле."
+        );
+
+        probeHabrCareerVacancyPageUseCase.probe(userId)
+                .whenComplete((result, throwable) -> Platform.runLater(() -> {
+                    probeHabrCareerVacancyPageButton.setDisable(false);
+
+                    if (throwable == null) {
+                        setHabrCareerVacancyPageStatus(
+                                formatHabrCareerVacancyPageStatus(result)
+                        );
+                    } else {
+                        setHabrCareerVacancyPageStatus(
+                                "Не удалось проверить страницу вакансий Habr Career: "
+                                        + rootMessage(throwable)
+                        );
+                    }
+                }));
+    }
+
+    @FXML
+    private void onProbeHabrCareerVacancyDetailsClicked() {
+        AuthenticatedUserDto currentUser = currentUserSession.getCurrentUser()
+                .orElse(null);
+
+        if (currentUser == null) {
+            setHabrCareerVacancyDetailsStatus(
+                    "Сначала войдите в аккаунт JobHunterPro."
+            );
+            return;
+        }
+
+        String externalVacancyId;
+
+        try {
+            externalVacancyId = readHabrCareerVacancyIdForDetailsProbe();
+        } catch (IllegalArgumentException exception) {
+            setHabrCareerVacancyDetailsStatus(exception.getMessage());
+            return;
+        }
+
+        UserId userId = UserId.of(currentUser.id());
+        probeHabrCareerVacancyDetailsButton.setDisable(true);
+        setHabrCareerVacancyDetailsStatus(
+                "Открываем вакансию Habr Career "
+                        + externalVacancyId
+                        + " в выделенном Chrome-профиле."
+        );
+
+        probeHabrCareerVacancyDetailsUseCase.probe(userId, externalVacancyId)
+                .whenComplete((result, throwable) -> Platform.runLater(() -> {
+                    probeHabrCareerVacancyDetailsButton.setDisable(false);
+
+                    if (throwable == null) {
+                        setHabrCareerVacancyDetailsStatus(
+                                formatHabrCareerVacancyDetailsStatus(result)
+                        );
+                    } else {
+                        setHabrCareerVacancyDetailsStatus(
+                                "Не удалось проверить детали вакансии Habr Career: "
+                                        + rootMessage(throwable)
+                        );
+                    }
+                }));
+    }
+
+    @FXML
+    private void onProbeHabrCareerResponseFormClicked() {
+        AuthenticatedUserDto currentUser = currentUserSession.getCurrentUser()
+                .orElse(null);
+
+        if (currentUser == null) {
+            setHabrCareerResponseFormStatus(
+                    "Сначала войдите в аккаунт JobHunterPro."
+            );
+            return;
+        }
+
+        String externalVacancyId;
+
+        try {
+            externalVacancyId = readHabrCareerVacancyIdForDetailsProbe();
+        } catch (IllegalArgumentException exception) {
+            setHabrCareerResponseFormStatus(exception.getMessage());
+            return;
+        }
+
+        UserId userId = UserId.of(currentUser.id());
+        probeHabrCareerResponseFormButton.setDisable(true);
+        setHabrCareerResponseFormStatus(
+                "Открываем форму отклика Habr Career "
+                        + externalVacancyId
+                        + ". Никакие кнопки, поля и формы не будут изменены."
+        );
+
+        probeHabrCareerResponseFormUseCase.probe(userId, externalVacancyId)
+                .whenComplete((result, throwable) -> Platform.runLater(() -> {
+                    probeHabrCareerResponseFormButton.setDisable(false);
+
+                    if (throwable == null) {
+                        setHabrCareerResponseFormStatus(
+                                formatHabrCareerResponseFormStatus(result)
+                        );
+                    } else {
+                        setHabrCareerResponseFormStatus(
+                                "Не удалось проверить форму отклика Habr Career: "
+                                        + rootMessage(throwable)
+                        );
+                    }
+                }));
+    }
+
+    @FXML
+    private void onProbeHabrCareerPostResponseFormClicked() {
+        AuthenticatedUserDto currentUser = currentUserSession.getCurrentUser()
+                .orElse(null);
+
+        if (currentUser == null) {
+            setHabrCareerPostResponseFormStatus(
+                    "Сначала войдите в аккаунт JobHunterPro."
+            );
+            return;
+        }
+
+        String externalVacancyId;
+
+        try {
+            externalVacancyId = readHabrCareerVacancyIdForDetailsProbe();
+        } catch (IllegalArgumentException exception) {
+            setHabrCareerPostResponseFormStatus(exception.getMessage());
+            return;
+        }
+
+        UserId userId = UserId.of(currentUser.id());
+        probeHabrCareerPostResponseFormButton.setDisable(true);
+        setHabrCareerPostResponseFormStatus(
+                "Открываем уже отправленный отклик Habr Career "
+                        + externalVacancyId
+                        + ". Поля и кнопка «Дополнить отклик» не будут изменены."
+        );
+
+        probeHabrCareerPostResponseFormUseCase.probe(userId, externalVacancyId)
+                .whenComplete((result, throwable) -> Platform.runLater(() -> {
+                    probeHabrCareerPostResponseFormButton.setDisable(false);
+
+                    if (throwable == null) {
+                        setHabrCareerPostResponseFormStatus(
+                                formatHabrCareerPostResponseFormStatus(result)
+                        );
+                    } else {
+                        setHabrCareerPostResponseFormStatus(
+                                "Не удалось проверить post-response форму Habr Career: "
+                                        + rootMessage(throwable)
+                        );
+                    }
+                }));
+    }
+
+    @FXML
+    private void onProbeHabrCareerResponseEditFormClicked() {
+        AuthenticatedUserDto currentUser = currentUserSession.getCurrentUser()
+                .orElse(null);
+
+        if (currentUser == null) {
+            setHabrCareerResponseEditFormStatus(
+                    "Сначала войдите в аккаунт JobHunterPro."
+            );
+            return;
+        }
+
+        String externalVacancyId;
+
+        try {
+            externalVacancyId = readHabrCareerVacancyIdForDetailsProbe();
+        } catch (IllegalArgumentException exception) {
+            setHabrCareerResponseEditFormStatus(exception.getMessage());
+            return;
+        }
+
+        UserId userId = UserId.of(currentUser.id());
+        probeHabrCareerResponseEditFormButton.setDisable(true);
+        setHabrCareerResponseEditFormStatus(
+                "Открываем существующий отклик Habr Career "
+                        + externalVacancyId
+                        + ". Будет нажата только кнопка «Редактировать»; "
+                        + "поля, сохранение и удаление не будут затронуты."
+        );
+
+        probeHabrCareerResponseEditFormUseCase.probe(userId, externalVacancyId)
+                .whenComplete((result, throwable) -> Platform.runLater(() -> {
+                    probeHabrCareerResponseEditFormButton.setDisable(false);
+
+                    if (throwable == null) {
+                        setHabrCareerResponseEditFormStatus(
+                                formatHabrCareerResponseEditFormStatus(result)
+                        );
+                    } else {
+                        setHabrCareerResponseEditFormStatus(
+                                "Не удалось проверить форму редактирования "
+                                        + "отклика Habr Career: "
+                                        + rootMessage(throwable)
+                        );
+                    }
+                }));
+    }
+
+    private String readHabrCareerVacancyIdForDetailsProbe() {
+        String value = habrCareerVacancyIdField == null
+                ? ""
+                : habrCareerVacancyIdField.getText();
+        String normalized = value == null ? "" : value.trim();
+
+        if (!normalized.matches("\\d+")) {
+            throw new IllegalArgumentException(
+                    "Укажите числовой ID вакансии Habr Career."
+            );
+        }
+
+        return normalized;
     }
 
     private void checkHhApi(UserId userId) {
@@ -500,6 +874,229 @@ public class ProfileController {
     private void setHhStatus(String message) {
         if (hhConnectionStatusLabel != null) {
             hhConnectionStatusLabel.setText(message);
+        }
+    }
+
+    private void setHabrCareerBrowserSessionStatus(String message) {
+        if (habrCareerBrowserSessionStatusLabel != null) {
+            habrCareerBrowserSessionStatusLabel.setText(message);
+        }
+    }
+
+    private String formatHabrCareerBrowserSessionStatus(
+            HabrCareerBrowserSessionProbeResultDto result
+    ) {
+        return switch (result.status()) {
+            case AUTHENTICATED -> "Браузер Habr Career авторизован. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case AUTHENTICATION_REQUIRED -> "Требуется вход в Habr Career в открывшемся Chrome-окне. "
+                    + "После входа нажмите проверку ещё раз. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case UNEXPECTED_PAGE -> "Habr Career открыл неожиданную страницу: "
+                    + result.finalUrl()
+                    + ". Diagnostics: "
+                    + result.diagnosticDirectory();
+        };
+    }
+
+    private String formatHabrCareerVacancyPageStatus(
+            HabrCareerVacancyPageProbeResultDto result
+    ) {
+        return switch (result.status()) {
+            case VACANCY_LIST_READY -> "Страница вакансий Habr Career загружена. "
+                    + "Карточек найдено: "
+                    + result.vacancyCardCount()
+                    + ". Diagnostics: "
+                    + result.diagnosticDirectory();
+            case AUTHENTICATION_REQUIRED -> "Требуется вход в Habr Career. "
+                    + "Сначала выполните проверку браузерной сессии. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case VACANCY_CARDS_NOT_FOUND -> "Страница вакансий Habr Career открыта, "
+                    + "но карточки вакансий не найдены. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case UNEXPECTED_PAGE -> "Habr Career открыл неожиданную страницу: "
+                    + result.finalUrl()
+                    + ". Diagnostics: "
+                    + result.diagnosticDirectory();
+        };
+    }
+
+    private String formatHabrCareerVacancyDetailsStatus(
+            HabrCareerVacancyDetailsProbeResultDto result
+    ) {
+        return switch (result.status()) {
+            case VACANCY_DETAILS_READY -> {
+                HabrCareerVacancyDetailsDto vacancy = Objects.requireNonNull(
+                        result.vacancy(),
+                        "Ready Habr Career vacancy details result must contain a vacancy"
+                );
+
+                yield "Детали вакансии Habr Career загружены: "
+                        + vacancy.title()
+                        + " — "
+                        + valueOrUnknown(vacancy.companyName())
+                        + ". Отклик доступен: "
+                        + (vacancy.responseActionAvailable() ? "да" : "нет")
+                        + ". Diagnostics: "
+                        + result.diagnosticDirectory();
+            }
+            case AUTHENTICATION_REQUIRED -> "Требуется вход в Habr Career. "
+                    + "Сначала выполните проверку браузерной сессии. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case VACANCY_DETAILS_NOT_FOUND -> "Страница вакансии Habr Career "
+                    + result.requestedExternalVacancyId()
+                    + " открыта, но её содержимое не найдено. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case UNEXPECTED_PAGE -> "Habr Career открыл неожиданную страницу: "
+                    + result.finalUrl()
+                    + ". Diagnostics: "
+                    + result.diagnosticDirectory();
+        };
+    }
+
+    private String formatHabrCareerResponseFormStatus(
+            HabrCareerResponseFormProbeResultDto result
+    ) {
+        return switch (result.status()) {
+            case DIRECT_RESPONSE_WOULD_SEND_IMMEDIATELY ->
+                    "Внимание: действие «Откликнуться» для этой вакансии "
+                            + "помечено Habr Career как direct response. Нажатие "
+                            + "приведёт к реальной отправке отклика. Проверка "
+                            + "остановлена без действия. Diagnostics: "
+                            + result.diagnosticDirectory();
+            case RESPONSE_ACTION_PRESENT_NOT_CLICKED_FOR_SAFETY ->
+                    "Действие «Откликнуться» найдено, но не было нажато. "
+                            + "Для него нужен отдельный безопасный сценарий "
+                            + "исполнения. Diagnostics: "
+                            + result.diagnosticDirectory();
+            case INITIAL_RESPONSE_ACTION_NOT_AVAILABLE -> "На странице вакансии "
+                    + "нет доступной первичной кнопки «Откликнуться». Diagnostics: "
+                    + result.diagnosticDirectory();
+            case RESPONSE_FORM_READY -> "Обнаружена legacy-диагностика формы "
+                    + "отклика. Текущая проверка больше не нажимает кнопки. "
+                    + "Diagnostics: "
+                    + result.diagnosticDirectory();
+            case TERMINAL_RESPONSE_STATE_DETECTED -> "Обнаружен terminal state "
+                    + "из legacy-диагностики. Текущая проверка больше не нажимает "
+                    + "кнопки. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case RESPONSE_FORM_NOT_FOUND -> "Форма отклика не обнаружена. "
+                    + "Текущая проверка не нажимает никаких кнопок. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case AUTHENTICATION_REQUIRED -> "Требуется вход в Habr Career. "
+                    + "Сначала выполните проверку браузерной сессии. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case VACANCY_DETAILS_NOT_FOUND -> "Страница вакансии Habr Career "
+                    + result.requestedExternalVacancyId()
+                    + " открыта, но её содержимое не найдено. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case UNEXPECTED_PAGE -> "Habr Career открыл неожиданную страницу: "
+                    + result.finalUrl()
+                    + ". Diagnostics: "
+                    + result.diagnosticDirectory();
+        };
+    }
+
+    private String formatHabrCareerPostResponseFormStatus(
+            HabrCareerPostResponseFormProbeResultDto result
+    ) {
+        return switch (result.status()) {
+            case POST_RESPONSE_FORM_READY -> "Обнаружена post-response форма Habr Career. "
+                    + "Маркер: «"
+                    + result.terminalResponseMarker()
+                    + "». Поле письма и кнопка «Дополнить отклик» найдены, "
+                    + "но не изменялись. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case RESPONSE_EXISTS_EDITABLE ->
+                    "Обнаружен уже отправленный отклик с доступной кнопкой «Редактировать». "
+                            + "Форма дополнения ещё не открывалась. Diagnostics: "
+                            + result.diagnosticDirectory();
+            case TERMINAL_RESPONSE_STATE_WITHOUT_COMPLEMENT_FORM ->
+                    "Отклик уже отправлен, но форма дополнения пока не найдена. "
+                            + "Diagnostics: "
+                            + result.diagnosticDirectory();
+            case INITIAL_RESPONSE_ACTION_STILL_AVAILABLE ->
+                    "Отклик для этой вакансии ещё не отправлен. Проверка "
+                            + "остановлена без нажатия «Откликнуться». Diagnostics: "
+                            + result.diagnosticDirectory();
+            case NO_RESPONSE_STATE -> "На странице не найдено ни исходного, "
+                    + "ни post-response состояния отклика. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case AUTHENTICATION_REQUIRED -> "Требуется вход в Habr Career. "
+                    + "Сначала выполните проверку браузерной сессии. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case VACANCY_DETAILS_NOT_FOUND -> "Страница вакансии Habr Career "
+                    + result.requestedExternalVacancyId()
+                    + " открыта, но её содержимое не найдено. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case UNEXPECTED_PAGE -> "Habr Career открыл неожиданную страницу: "
+                    + result.finalUrl()
+                    + ". Diagnostics: "
+                    + result.diagnosticDirectory();
+        };
+    }
+
+    private String formatHabrCareerResponseEditFormStatus(
+            HabrCareerResponseEditFormProbeResultDto result
+    ) {
+        return switch (result.status()) {
+            case EDIT_FORM_READY -> "Форма редактирования существующего отклика Habr Career открыта. "
+                    + "Найдены контролы: "
+                    + result.controls().size()
+                    + ". Поля и кнопки сохранения не изменялись. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case RESPONSE_EXISTS_EDIT_FORM_NOT_RENDERED ->
+                    "Кнопка «Редактировать» была нажата, но форма с контролами не появилась. "
+                            + "Никакие значения не изменялись. Diagnostics: "
+                            + result.diagnosticDirectory();
+            case RESPONSE_EXISTS_EDIT_ACTION_NOT_FOUND ->
+                    "Существующий отклик найден, но точная кнопка «Редактировать» недоступна. "
+                            + "Diagnostics: "
+                            + result.diagnosticDirectory();
+            case RESPONSE_NOT_FOUND -> "На странице не найден существующий редактируемый отклик. "
+                    + "Проверка остановлена без действий. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case AUTHENTICATION_REQUIRED -> "Требуется вход в Habr Career. "
+                    + "Сначала выполните проверку браузерной сессии. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case VACANCY_DETAILS_NOT_FOUND -> "Страница вакансии Habr Career "
+                    + result.requestedExternalVacancyId()
+                    + " открыта, но её содержимое не найдено. Diagnostics: "
+                    + result.diagnosticDirectory();
+            case UNEXPECTED_PAGE -> "Habr Career открыл неожиданную страницу: "
+                    + result.finalUrl()
+                    + ". Diagnostics: "
+                    + result.diagnosticDirectory();
+        };
+    }
+
+    private void setHabrCareerPostResponseFormStatus(String message) {
+        if (habrCareerPostResponseFormStatusLabel != null) {
+            habrCareerPostResponseFormStatusLabel.setText(message);
+        }
+    }
+
+    private void setHabrCareerResponseEditFormStatus(String message) {
+        if (habrCareerResponseEditFormStatusLabel != null) {
+            habrCareerResponseEditFormStatusLabel.setText(message);
+        }
+    }
+
+    private void setHabrCareerResponseFormStatus(String message) {
+        if (habrCareerResponseFormStatusLabel != null) {
+            habrCareerResponseFormStatusLabel.setText(message);
+        }
+    }
+
+    private void setHabrCareerVacancyDetailsStatus(String message) {
+        if (habrCareerVacancyDetailsStatusLabel != null) {
+            habrCareerVacancyDetailsStatusLabel.setText(message);
+        }
+    }
+
+    private void setHabrCareerVacancyPageStatus(String message) {
+        if (habrCareerVacancyPageStatusLabel != null) {
+            habrCareerVacancyPageStatusLabel.setText(message);
         }
     }
 

@@ -25,7 +25,8 @@ public class AutoResponseQueueService implements
         GetReadyAutoResponseQueueItemsUseCase,
         RemoveAutoResponseQueueItemUseCase,
         UpdateAutoResponseQueueItemStatusUseCase,
-        MarkAutoResponseQueueItemsReadyUseCase
+        MarkAutoResponseQueueItemsReadyUseCase,
+        ReturnAutoResponseQueueItemsToQueuedUseCase
 {
 
     private static final Logger log = LoggerFactory.getLogger(AutoResponseQueueService.class);
@@ -416,6 +417,124 @@ public class AutoResponseQueueService implements
 
 
 
+    @Override
+    public CompletableFuture<ReturnAutoResponseQueueItemsToQueuedResultDto>
+    returnToQueued(
+            ReturnAutoResponseQueueItemsToQueuedCommand command
+    ) {
+        Objects.requireNonNull(
+                command,
+                "Return queue items to queued command must not be null"
+        );
+
+        CompletableFuture<ReturnToQueuedBatchAccumulator> pipeline =
+                CompletableFuture.completedFuture(
+                        ReturnToQueuedBatchAccumulator.empty()
+                );
+
+        for (AutoResponseQueueItemId itemId : command.itemIds()) {
+            pipeline = pipeline.thenCompose(accumulator ->
+                    returnSingleItemToQueued(
+                            command.userId(),
+                            itemId
+                    ).handle((itemResult, throwable) -> {
+                        if (throwable != null) {
+                            return accumulator.withFailure(
+                                    "itemId="
+                                            + itemId.value()
+                                            + ": "
+                                            + rootMessage(throwable)
+                            );
+                        }
+
+                        return switch (itemResult) {
+                            case RETURNED_TO_QUEUED ->
+                                    accumulator.withReturnedToQueued();
+                            case ALREADY_QUEUED ->
+                                    accumulator.withAlreadyQueued();
+                            case NOT_ELIGIBLE ->
+                                    accumulator.withNotEligible();
+                            case NOT_FOUND ->
+                                    accumulator.withNotFound();
+                        };
+                    })
+            );
+        }
+
+        return pipeline.thenApply(accumulator -> {
+            ReturnAutoResponseQueueItemsToQueuedResultDto result =
+                    new ReturnAutoResponseQueueItemsToQueuedResultDto(
+                            command.itemIds().size(),
+                            accumulator.returnedToQueuedCount(),
+                            accumulator.alreadyQueuedCount(),
+                            accumulator.notEligibleCount(),
+                            accumulator.notFoundCount(),
+                            accumulator.failures()
+                    );
+
+            log.info(
+                    "Queue items batch-return-to-queued operation completed: "
+                            + "userId={}, requested={}, returnedToQueued={}, "
+                            + "alreadyQueued={}, notEligible={}, notFound={}, "
+                            + "failed={}",
+                    command.userId(),
+                    result.requestedCount(),
+                    result.returnedToQueuedCount(),
+                    result.alreadyQueuedCount(),
+                    result.notEligibleCount(),
+                    result.notFoundCount(),
+                    result.failedCount()
+            );
+
+            return result;
+        });
+    }
+
+    private CompletableFuture<ReturnToQueuedBatchItemResult>
+    returnSingleItemToQueued(
+            UserId userId,
+            AutoResponseQueueItemId itemId
+    ) {
+        return queueRepository.findByIdAndUserId(
+                        itemId,
+                        userId
+                )
+                .thenCompose(optionalItem -> {
+                    if (optionalItem.isEmpty()) {
+                        return CompletableFuture.completedFuture(
+                                ReturnToQueuedBatchItemResult.NOT_FOUND
+                        );
+                    }
+
+                    AutoResponseQueueItem item = optionalItem.get();
+
+                    if (item.status() == AutoResponseQueueStatus.QUEUED) {
+                        return CompletableFuture.completedFuture(
+                                ReturnToQueuedBatchItemResult.ALREADY_QUEUED
+                        );
+                    }
+
+                    if (item.status() != AutoResponseQueueStatus.READY) {
+                        return CompletableFuture.completedFuture(
+                                ReturnToQueuedBatchItemResult.NOT_ELIGIBLE
+                        );
+                    }
+
+                    return queueRepository.updateStatus(
+                                    itemId,
+                                    userId,
+                                    AutoResponseQueueStatus.QUEUED
+                            )
+                            .thenApply(updatedItem ->
+                                    updatedItem.isPresent()
+                                            ? ReturnToQueuedBatchItemResult
+                                            .RETURNED_TO_QUEUED
+                                            : ReturnToQueuedBatchItemResult
+                                            .NOT_FOUND
+                            );
+                });
+    }
+
     private record BatchAdditionAccumulator(
             int addedCount,
             int alreadyExistsCount,
@@ -541,5 +660,86 @@ public class AutoResponseQueueService implements
                     List.copyOf(updatedFailures)
             );
         }
+    }
+
+    private record ReturnToQueuedBatchAccumulator(
+            int returnedToQueuedCount,
+            int alreadyQueuedCount,
+            int notEligibleCount,
+            int notFoundCount,
+            List<String> failures
+    ) {
+
+        private static ReturnToQueuedBatchAccumulator empty() {
+            return new ReturnToQueuedBatchAccumulator(
+                    0,
+                    0,
+                    0,
+                    0,
+                    List.of()
+            );
+        }
+
+        private ReturnToQueuedBatchAccumulator withReturnedToQueued() {
+            return new ReturnToQueuedBatchAccumulator(
+                    returnedToQueuedCount + 1,
+                    alreadyQueuedCount,
+                    notEligibleCount,
+                    notFoundCount,
+                    failures
+            );
+        }
+
+        private ReturnToQueuedBatchAccumulator withAlreadyQueued() {
+            return new ReturnToQueuedBatchAccumulator(
+                    returnedToQueuedCount,
+                    alreadyQueuedCount + 1,
+                    notEligibleCount,
+                    notFoundCount,
+                    failures
+            );
+        }
+
+        private ReturnToQueuedBatchAccumulator withNotEligible() {
+            return new ReturnToQueuedBatchAccumulator(
+                    returnedToQueuedCount,
+                    alreadyQueuedCount,
+                    notEligibleCount + 1,
+                    notFoundCount,
+                    failures
+            );
+        }
+
+        private ReturnToQueuedBatchAccumulator withNotFound() {
+            return new ReturnToQueuedBatchAccumulator(
+                    returnedToQueuedCount,
+                    alreadyQueuedCount,
+                    notEligibleCount,
+                    notFoundCount + 1,
+                    failures
+            );
+        }
+
+        private ReturnToQueuedBatchAccumulator withFailure(
+                String failure
+        ) {
+            List<String> updatedFailures = new ArrayList<>(failures);
+            updatedFailures.add(failure);
+
+            return new ReturnToQueuedBatchAccumulator(
+                    returnedToQueuedCount,
+                    alreadyQueuedCount,
+                    notEligibleCount,
+                    notFoundCount,
+                    List.copyOf(updatedFailures)
+            );
+        }
+    }
+
+    private enum ReturnToQueuedBatchItemResult {
+        RETURNED_TO_QUEUED,
+        ALREADY_QUEUED,
+        NOT_ELIGIBLE,
+        NOT_FOUND
     }
 }
